@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-g" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Art Fest Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              teal: {
+                50: '#f0fdfa',
+                100: '#ccfbf1',
+                200: '#99f6e4',
+                300: '#5eead4',
+                400: '#2dd4bf',
+                500: '#14b8a6',
+                600: '#0d9488',
+                700: '#0f766e',
+                800: '#115e59',
+                900: '#134e4a',
+                950: '#042f2e',
+              },
+              zinc: {
+                50: '#fafafa',
+                100: '#f4f4f5',
+                200: '#e4e4e7',
+                300: '#d4d4d8',
+                400: '#a1a1aa',
+                500: '#71717a',
+                600: '#52525b',
+                700: '#3f3f46',
+                800: '#27272a',
+                900: '#18181b',
+                950: '#09090b',
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style type="text/css">
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      * {
+        transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.548.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
