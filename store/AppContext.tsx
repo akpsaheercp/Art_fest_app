@@ -51,18 +51,34 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, settings: { ...state.settings, ...action.payload } };
     case 'ADD_CATEGORY':
       return { ...state, categories: [...state.categories, action.payload] };
+    case 'UPDATE_CATEGORY':
+      return { ...state, categories: state.categories.map(c => c.id === action.payload.id ? action.payload : c) };
+    case 'REORDER_CATEGORIES':
+        return { ...state, categories: action.payload };
     case 'DELETE_CATEGORY':
       return { ...state, categories: state.categories.filter(c => c.id !== action.payload) };
+    case 'DELETE_MULTIPLE_CATEGORIES':
+      return { ...state, categories: state.categories.filter(c => !action.payload.includes(c.id)) };
     case 'ADD_TEAM':
       return { ...state, teams: [...state.teams, action.payload] };
+    case 'UPDATE_TEAM':
+        return { ...state, teams: state.teams.map(t => t.id === action.payload.id ? action.payload : t) };
+    case 'REORDER_TEAMS':
+        return { ...state, teams: action.payload };
     case 'DELETE_TEAM':
       return { ...state, teams: state.teams.filter(t => t.id !== action.payload) };
+    case 'DELETE_MULTIPLE_TEAMS':
+      return { ...state, teams: state.teams.filter(t => !action.payload.includes(t.id)) };
     case 'ADD_ITEM':
         return { ...state, items: [...state.items, action.payload] };
+    case 'ADD_MULTIPLE_ITEMS':
+        return { ...state, items: [...state.items, ...action.payload] };
     case 'UPDATE_ITEM':
         return { ...state, items: state.items.map(i => i.id === action.payload.id ? action.payload : i) };
     case 'DELETE_ITEM':
         return { ...state, items: state.items.filter(i => i.id !== action.payload) };
+    case 'DELETE_MULTIPLE_ITEMS':
+        return { ...state, items: state.items.filter(i => !action.payload.includes(i.id)) };
     case 'ADD_GRADE':
         return {
             ...state,
@@ -81,15 +97,22 @@ const appReducer = (state: AppState, action: Action): AppState => {
         };
     case 'ADD_CODE_LETTER':
         return { ...state, codeLetters: [...state.codeLetters, action.payload] };
+    case 'UPDATE_CODE_LETTER':
+        return { ...state, codeLetters: state.codeLetters.map(c => c.id === action.payload.id ? action.payload : c) };
+    case 'REORDER_CODE_LETTERS':
+        return { ...state, codeLetters: action.payload };
     case 'DELETE_CODE_LETTER':
         return { ...state, codeLetters: state.codeLetters.filter(c => c.id !== action.payload) };
     case 'ADD_PARTICIPANT':
         return { ...state, participants: [...state.participants, action.payload] };
+    case 'ADD_MULTIPLE_PARTICIPANTS':
+        return { ...state, participants: [...state.participants, ...action.payload] };
     case 'UPDATE_PARTICIPANT':
-        // FIX: Corrected a typo where 'i' was used instead of 'p'.
         return { ...state, participants: state.participants.map(p => p.id === action.payload.id ? action.payload : p) };
     case 'DELETE_PARTICIPANT':
         return { ...state, participants: state.participants.filter(p => p.id !== action.payload) };
+    case 'DELETE_MULTIPLE_PARTICIPANTS':
+        return { ...state, participants: state.participants.filter(p => !action.payload.includes(p.id)) };
     case 'SET_SCHEDULE':
         return { ...state, schedule: action.payload };
     case 'UPDATE_TABULATION_ENTRY': {

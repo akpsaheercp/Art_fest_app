@@ -16,7 +16,7 @@ export interface Category {
 }
 
 export interface Team {
-  id: string;
+  id:string;
   name: string;
 }
 
@@ -109,19 +109,31 @@ export type Action =
   | { type: 'SET_STATE'; payload: AppState }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
   | { type: 'ADD_CATEGORY'; payload: Category }
+  | { type: 'UPDATE_CATEGORY'; payload: Category }
+  | { type: 'REORDER_CATEGORIES'; payload: Category[] }
   | { type: 'DELETE_CATEGORY'; payload: string }
+  | { type: 'DELETE_MULTIPLE_CATEGORIES'; payload: string[] }
   | { type: 'ADD_TEAM'; payload: Team }
+  | { type: 'UPDATE_TEAM'; payload: Team }
+  | { type: 'REORDER_TEAMS'; payload: Team[] }
   | { type: 'DELETE_TEAM'; payload: string }
+  | { type: 'DELETE_MULTIPLE_TEAMS'; payload: string[] }
   | { type: 'ADD_ITEM'; payload: Item }
+  | { type: 'ADD_MULTIPLE_ITEMS'; payload: Item[] }
   | { type: 'UPDATE_ITEM'; payload: Item }
   | { type: 'DELETE_ITEM'; payload: string }
+  | { type: 'DELETE_MULTIPLE_ITEMS'; payload: string[] }
   | { type: 'ADD_GRADE'; payload: { itemType: 'single' | 'group', grade: Grade } }
   | { type: 'DELETE_GRADE'; payload: { itemType: 'single' | 'group', gradeId: string } }
   | { type: 'ADD_CODE_LETTER'; payload: CodeLetter }
+  | { type: 'UPDATE_CODE_LETTER'; payload: CodeLetter }
+  | { type: 'REORDER_CODE_LETTERS'; payload: CodeLetter[] }
   | { type: 'DELETE_CODE_LETTER'; payload: string }
   | { type: 'ADD_PARTICIPANT'; payload: Participant }
+  | { type: 'ADD_MULTIPLE_PARTICIPANTS'; payload: Participant[] }
   | { type: 'UPDATE_PARTICIPANT'; payload: Participant }
   | { type: 'DELETE_PARTICIPANT'; payload: string }
+  | { type: 'DELETE_MULTIPLE_PARTICIPANTS'; payload: string[] }
   | { type: 'SET_SCHEDULE'; payload: ScheduledEvent[] }
   | { type: 'UPDATE_TABULATION_ENTRY'; payload: TabulationEntry }
   | { type: 'DECLARE_RESULT'; payload: { itemId: string, categoryId: string } };
