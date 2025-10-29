@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Card from '../../components/Card';
 import { useAppState } from '../../hooks/useAppState';
@@ -41,12 +42,15 @@ const GradePointsManager: React.FC<{ itemType: 'single' | 'group' }> = ({ itemTy
 
 const GradePoints: React.FC = () => {
     return (
-        <Card title="Grade Points">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <GradePointsManager itemType="single" />
-                <GradePointsManager itemType="group" />
-            </div>
-        </Card>
+        <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">Grade Points</h2>
+            <Card title="Manage Grade Points">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <GradePointsManager itemType="single" />
+                    <GradePointsManager itemType="group" />
+                </div>
+            </Card>
+        </div>
     );
 };
 
