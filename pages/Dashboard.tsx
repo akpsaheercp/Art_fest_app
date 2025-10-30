@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
@@ -37,7 +36,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
        {/* Hero Banner */}
        <div className="p-8 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-xl">
           <h1 className="text-4xl font-bold">{state.settings.heading}</h1>
-          <p className="mt-2 text-lg text-teal-100 opacity-90">Welcome, Manager! Here's a summary of your event.</p>
+          <p className="mt-2 text-lg text-teal-100 opacity-90">{state.settings.description}</p>
       </div>
 
       {/* Main content grid */}

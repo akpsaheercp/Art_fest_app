@@ -4,7 +4,8 @@ import { AppState, Action, ItemType, Result, TabulationEntry } from '../types';
 const initialState: AppState = {
   settings: {
     organizingTeam: 'Creative Arts Committee',
-    heading: 'Annual Art Fest 2024',
+    heading: 'Amazio_2026',
+    description: "Welcome, Manager! Here's a summary of your event.",
     maxItemsPerParticipant: 5,
     defaultParticipantsPerItem: 1,
   },
