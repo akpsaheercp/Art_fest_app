@@ -29,11 +29,24 @@ const GeneralSettings: React.FC = () => {
                     </div>
                     <div className="relative group">
                         <label className="flex items-center gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                            Fest Heading
+                            Fest Name
                             <HelpCircle size={14} className="text-zinc-400" />
                         </label>
                         <input type="text" value={state.settings.heading} onChange={e => dispatch({type: 'UPDATE_SETTINGS', payload: {heading: e.target.value}})} className={inputClasses} />
-                        <Tooltip text="The main title or heading for the festival, used in reports." />
+                        <Tooltip text="The main name or title for the festival, displayed on the dashboard and in reports." />
+                    </div>
+                     <div className="relative group md:col-span-2">
+                        <label className="flex items-center gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            Fest Description
+                            <HelpCircle size={14} className="text-zinc-400" />
+                        </label>
+                        <textarea
+                            rows={3}
+                            value={state.settings.description}
+                            onChange={e => dispatch({type: 'UPDATE_SETTINGS', payload: {description: e.target.value}})}
+                            className={inputClasses}
+                        />
+                        <Tooltip text="A short description of the festival, displayed on the dashboard." />
                     </div>
                     <div className="relative group">
                         <label className="flex items-center gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">

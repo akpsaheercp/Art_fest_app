@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Card from '../components/Card';
@@ -188,7 +187,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
 const ReportsPage: React.FC = () => {
   const { state } = useAppState();
   const [reportContent, setReportContent] = useState<{ title: string; content: string; isSearchable: boolean } | null>(null);
-  const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set());
 
   const getTeamName = (id: string) => state.teams.find(t => t.id === id)?.name || 'N/A';
   const getCategoryName = (id: string) => state.categories.find(c => c.id === id)?.name || 'N/A';
@@ -202,177 +200,95 @@ const ReportsPage: React.FC = () => {
       th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } thead { background-color: #f2f2f2; } th { font-weight: bold; }
       .page-break-before-always { page-break-before: always; } .font-bold { font-weight: 700; } .font-medium { font-weight: 500; }
       .text-lg { font-size: 1.125rem; } .text-xl { font-size: 1.25rem; } .text-sm { font-size: 0.875rem; } .text-xs { font-size: 0.75rem; }
-      .mb-2 { margin-bottom: 0.5rem; } .mb-8 { margin-bottom: 2rem; } .mt-1 { margin-top: 0.25rem; } .mt-4 { margin-top: 1rem; } .text-center { text-align: center; }
+      .mb-2 { margin-bottom: 0.5rem; } .mb-4 { margin-bottom: 1rem; }
     </style>
   `;
 
-  const generateReport = (title: string, content: string, isSearchable: boolean = false) => {
-    setReportContent({ title, content: getStyles() + content, isSearchable });
+  const generateParticipantsList = () => {
+    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th>Chest No.</th><th>Name</th><th>Team</th><th>Category</th></tr></thead><tbody>`;
+    [...state.participants].sort((a,b) => a.chestNumber.localeCompare(b.chestNumber)).forEach(p => {
+        html += `<tr><td>${p.chestNumber}</td><td>${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    return html;
   };
   
-  const handleGenerateIdCards = (returnOnly = false) => {
-    const content = `<div class="grid grid-cols-2 md:grid-cols-3 gap-4">${state.participants.map(p => `<div class="id-card"><h3 class="text-lg font-bold">${p.name}</h3><p class="text-sm mt-1">Chest No: <strong class="font-bold">${p.chestNumber}</strong></p><p class="text-sm">Team: <strong class="font-bold">${getTeamName(p.teamId)}</strong></p><p class="mt-4 text-xs font-semibold">${state.settings.heading}</p></div>`).join('')}</div>`;
-    const title = 'Participant ID Cards';
-    if (returnOnly) return { title, content };
-    generateReport(title, content);
-  };
-
-  const handleGenerateParticipantsList = (returnOnly = false) => {
-    const content = `<table><thead><tr><th>Chest No.</th><th>Name</th><th>Team</th><th>Category</th></tr></thead><tbody>${state.participants.sort((a,b) => a.chestNumber.localeCompare(b.chestNumber)).map(p => `<tr><td>${p.chestNumber}</td><td class="font-medium">${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`).join('')}</tbody></table>`;
-    const title = 'Participants List';
-    if (returnOnly) return { title, content };
-    generateReport(title, content, true);
-  };
-
-  const handleGenerateCodeLetterList = (returnOnly = false) => {
-    let content = '';
+  const generateItemsList = () => {
+    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th>Name</th><th>Category</th><th>Type</th><th>Points (1/2/3)</th></tr></thead><tbody>`;
     state.items.forEach(item => {
-      const participantsInItem = state.participants.filter(p => p.itemIds.includes(item.id));
-      if (participantsInItem.length === 0) return;
-      content += `<div class="mb-8 page-break-before-always"><h3 class="text-xl font-bold mb-2">${item.name} - ${getCategoryName(item.categoryId)}</h3><table><thead><tr><th>Chest No.</th><th>Name</th><th>Team</th><th>Code Letter</th></tr></thead><tbody>${participantsInItem.map(p => { const tabulationEntry = state.tabulation.find(t => t.participantId === p.id && t.itemId === item.id); return `<tr><td>${p.chestNumber}</td><td class="font-medium">${p.name}</td><td>${getTeamName(p.teamId)}</td><td class="font-bold">${tabulationEntry?.codeLetter || 'N/A'}</td></tr>`; }).join('')}</tbody></table></div>`;
+        html += `<tr><td>${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td>${item.type}</td><td>${item.points.first}/${item.points.second}/${item.points.third}</td></tr>`;
     });
-    const title = 'Code Letter List';
-    if (returnOnly) return { title, content };
-    generateReport(title, content, true);
+    html += `</tbody></table>`;
+    return html;
   };
 
-  const handleGenerateCount = (returnOnly = false) => {
-    const content = `<table><thead><tr><th>Item Name</th><th>Category</th><th class="text-center">Participant Count</th></tr></thead><tbody>${state.items.map(item => `<tr><td class="font-medium">${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td class="text-center font-bold">${state.participants.filter(p => p.itemIds.includes(item.id)).length}</td></tr>`).join('')}</tbody></table>`;
-    const title = 'Participant Count per Item';
-    if (returnOnly) return { title, content };
-    generateReport(title, content, true);
-  };
+  const generateSchedule = () => {
+    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th>Date</th><th>Time</th><th>Item</th><th>Category</th><th>Stage</th></tr></thead><tbody>`;
+    state.schedule.forEach(event => {
+        const item = state.items.find(i => i.id === event.itemId);
+        const category = state.categories.find(c => c.id === event.categoryId);
+        html += `<tr><td>${event.date}</td><td>${event.time}</td><td>${item?.name || 'N/A'}</td><td>${category?.name || 'N/A'}</td><td>${event.stage}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    return html;
+  }
 
-  const handleGenerateWinnersList = (returnOnly = false) => {
-    let content = '';
-    const declaredResults = state.results.filter(r => r.declared);
-    if (declaredResults.length === 0) { content = '<p class="text-center">No results have been declared yet.</p>'; } else {
-      declaredResults.forEach(result => {
-        const item = state.items.find(i => i.id === result.itemId); if (!item) return;
-        content += `<div class="mb-8 page-break-before-always"><h3 class="text-xl font-bold mb-2">${item.name} - ${getCategoryName(result.categoryId)}</h3><table><thead><tr><th>Position</th><th>Name</th><th>Team</th><th>Mark</th></tr></thead><tbody>${result.winners.sort((a,b) => a.position - b.position).map(winner => { const participant = getParticipant(winner.participantId); return `<tr><td class="font-bold">${winner.position}</td><td class="font-medium">${participant?.name || 'N/A'}</td><td>${getTeamName(participant?.teamId || '')}</td><td>${winner.mark}</td></tr>`; }).join('')}</tbody></table></div>`;
+  const generateResults = () => {
+    let html = `${getStyles()}`;
+    state.results.forEach((result, index) => {
+      const item = state.items.find(i => i.id === result.itemId);
+      if (!item) return;
+      html += `<div class="${index > 0 ? 'page-break-before-always' : ''}">
+        <h3>Results: ${item.name} (${getCategoryName(result.categoryId)})</h3>
+        <table><thead><tr><th>Position</th><th>Name</th><th>Team</th><th>Mark</th><th>Grade</th></tr></thead><tbody>`;
+      result.winners.sort((a,b) => a.position - b.position).forEach(winner => {
+        const p = getParticipant(winner.participantId);
+        const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
+        const grade = gradeConfig.find(g => g.id === winner.gradeId);
+        html += `<tr><td>${winner.position}</td><td>${p?.name || 'N/A'}</td><td>${getTeamName(p?.teamId || '')}</td><td>${winner.mark}</td><td>${grade?.name || '-'}</td></tr>`;
       });
-    }
-    const title = 'Winners List';
-    if (returnOnly) return { title, content };
-    generateReport(title, content, true);
+      html += `</tbody></table></div>`;
+    });
+    return html;
+  }
+  
+  const reports = [
+    { id: 'participants', name: 'All Participants List', generator: generateParticipantsList, isSearchable: true },
+    { id: 'items', name: 'All Items List', generator: generateItemsList, isSearchable: true },
+    { id: 'schedule', name: 'Full Schedule', generator: generateSchedule, isSearchable: false },
+    { id: 'results', name: 'Item-wise Results', generator: generateResults, isSearchable: false },
+  ];
+
+  const handleGenerateReport = (report: typeof reports[0]) => {
+    const content = report.generator();
+    setReportContent({ title: report.name, content, isSearchable: report.isSearchable });
   };
   
-  const reportGenerators: { [key: string]: { title: string; description: string; handler: (returnOnly?: boolean) => any; } } = {
-    'id-cards': { title: 'ID Cards', description: 'Generate printable ID cards for each participant.', handler: handleGenerateIdCards },
-    'participants-list': { title: 'Participants List', description: 'View and print a list of all participants.', handler: handleGenerateParticipantsList },
-    'code-letter-list': { title: 'Code Letter List', description: 'Detailed list for each item with names and teams.', handler: handleGenerateCodeLetterList },
-    'participant-count': { title: 'Participant Count per Item', description: 'Total number of participants for each item.', handler: handleGenerateCount },
-    'winners-list': { title: 'Winners List', description: 'A complete list of all winners.', handler: handleGenerateWinnersList },
-  };
-
-  const handleSelectReport = (id: string, isSelected: boolean) => {
-    setSelectedReports(prev => {
-      const newSet = new Set(prev);
-      if (isSelected) {
-        newSet.add(id);
-      } else {
-        newSet.delete(id);
-      }
-      return newSet;
-    });
-  };
-
-  const handleBatchPrint = () => {
-    let combinedContent = '';
-    Array.from(selectedReports).forEach(id => {
-      const generator = reportGenerators[id]?.handler;
-      if (generator) {
-        const { title, content } = generator(true);
-        combinedContent += `<div class="page-break-before-always"><h2 class="text-2xl font-bold text-center mb-4">${title}</h2>${content}</div>`;
-      }
-    });
-
-    const printWindow = window.open('', '_blank', 'height=800,width=800');
-    if (!printWindow) { alert('Could not open print window.'); return; }
-    printWindow.document.write(`<html><head><title>Batch Report</title><script src="https://cdn.tailwindcss.com"></script>${getStyles()}</head><body><div class="p-6">${combinedContent}</div></body></html>`);
-    printWindow.document.close();
-    setTimeout(() => { printWindow.focus(); printWindow.print(); printWindow.close(); }, 500);
-  };
-
-
-  // --- CSV Export Logic ---
-  const exportToCsv = (filename: string, data: any[]) => {
-    if (data.length === 0) { alert("No data available to export."); return; }
-    const headers = Object.keys(data[0]);
-    const csvContent = [ headers.join(','), ...data.map(row => headers.map(header => { let cell = row[header] === null || row[header] === undefined ? '' : String(row[header]); if (cell.includes(',')) { cell = `"${cell}"`; } return cell; }).join(',')) ].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url); link.setAttribute("download", filename); link.style.visibility = 'hidden';
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  };
-
-  const handleExportParticipants = () => {
-    const data = state.participants.map(p => ({ 'Chest Number': p.chestNumber, 'Name': p.name, 'Team': getTeamName(p.teamId), 'Category': getCategoryName(p.categoryId), 'Items': p.itemIds.map(id => state.items.find(i => i.id === id)?.name || '').join('; ') }));
-    exportToCsv('participants.csv', data);
-  };
-
-  const handleExportResults = () => {
-    const data: any[] = [];
-    const getGradeName = (gradeId: string | null, itemType: ItemType) => { if (!gradeId) return 'N/A'; const gradeConfig = itemType === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group; const grade = gradeConfig.find(g => g.id === gradeId); return grade ? grade.name : 'N/A'; };
-    state.results.forEach(result => {
-      const item = state.items.find(i => i.id === result.itemId); if (!item || !result.declared) return;
-      const entries = state.tabulation.filter(t => t.itemId === result.itemId && t.categoryId === result.categoryId);
-      entries.forEach(entry => {
-        const participant = getParticipant(entry.participantId); if (!participant) return;
-        data.push({ 'Item': item.name, 'Category': getCategoryName(result.categoryId), 'Chest Number': participant.chestNumber, 'Name': participant.name, 'Team': getTeamName(participant.teamId), 'Mark': entry.mark ?? '', 'Position': entry.position ?? '', 'Grade': getGradeName(entry.gradeId, item.type) });
-      });
-    });
-    exportToCsv('full_results.csv', data.sort((a, b) => a.Item.localeCompare(b.Item) || a.Position - b.Position));
-  };
-
-
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">Reports</h2>
+      <Card title="Available Reports">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {reports.map((report) => (
+            <button
+              key={report.id}
+              onClick={() => handleGenerateReport(report)}
+              className="p-6 text-left bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <h3 className="font-semibold text-zinc-800 dark:text-zinc-100">{report.name}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Click to generate and view this report.</p>
+            </button>
+          ))}
+        </div>
+      </Card>
       
-      {selectedReports.size > 0 && (
-          <Card title="Batch Actions">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">{selectedReports.size} report(s) selected. Print or download them as a single document.</p>
-              <button onClick={handleBatchPrint} className="w-full px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">Print / Save as PDF Selected</button>
-          </Card>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Object.entries(reportGenerators).map(([id, { title, description, handler }]) => (
-            <Card title={title} key={id} className="relative">
-                <div className="absolute top-4 right-4">
-                    <input 
-                        type="checkbox" 
-                        className="h-5 w-5 rounded border-zinc-300 text-teal-500 focus:ring-teal-500 cursor-pointer"
-                        onChange={(e) => handleSelectReport(id, e.target.checked)}
-                        checked={selectedReports.has(id)}
-                        aria-label={`Select ${title} report`}
-                    />
-                </div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">{description}</p>
-                <button onClick={() => handler()} className="w-full px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">View/Print</button>
-            </Card>
-        ))}
-
-        <Card title="Data Export">
-             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Download your data in CSV format for use in spreadsheets.</p>
-             <div className="flex flex-col gap-2">
-                <button onClick={handleExportParticipants} className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 text-sm">Export Participants (CSV)</button>
-                <button onClick={handleExportResults} className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 text-sm">Export Full Results (CSV)</button>
-             </div>
-        </Card>
-      </div>
-
-       {reportContent && (
-        <ReportViewer
-          isOpen={!!reportContent}
-          onClose={() => setReportContent(null)}
-          title={reportContent.title}
-          content={reportContent.content}
-          isSearchable={reportContent.isSearchable}
-        />
-      )}
+      <ReportViewer
+        isOpen={!!reportContent}
+        onClose={() => setReportContent(null)}
+        title={reportContent?.title || ''}
+        content={reportContent?.content || ''}
+        isSearchable={reportContent?.isSearchable || false}
+      />
     </div>
   );
 };

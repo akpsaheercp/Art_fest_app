@@ -6,6 +6,7 @@ export enum ItemType {
 export interface Settings {
   organizingTeam: string;
   heading: string;
+  description: string;
   maxItemsPerParticipant: number;
   defaultParticipantsPerItem: number;
 }
