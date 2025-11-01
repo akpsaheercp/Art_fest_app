@@ -1,7 +1,8 @@
+
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef } from 'react';
-import { AppState, Action, ItemType, Result, TabulationEntry } from '../types';
+import { AppState, Action, ItemType, Result } from '../types';
 import { db } from '../firebase/config';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { ref, onValue, set } from 'firebase/database';
 import { isEqual } from 'lodash';
 
 const initialState: AppState = {
@@ -208,27 +209,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [state]);
 
   useEffect(() => {
-    const docRef = doc(db, 'state', 'appState');
+    console.log('Setting up Firebase listener...');
+    const dbRef = ref(db, 'state/appState');
 
-    const unsubscribe = onSnapshot(docRef, (doc) => {
-      if (doc.exists()) {
-        const remoteState = doc.data() as AppState;
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      console.log('Firebase listener triggered.');
+      if (snapshot.exists()) {
+        console.log('Data exists, applying remote state.');
+        const remoteState = snapshot.val() as AppState;
         if (!isEqual(stateRef.current, remoteState)) {
           dispatch({ type: 'SET_STATE', payload: remoteState });
         }
       } else {
-        setDoc(docRef, initialState);
+        console.log('No data found, setting initial state in DB.');
+        set(dbRef, initialState);
       }
       setIsReady(true);
+    }, (error) => {
+      console.error('Firebase onValue error:', error);
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log('Cleaning up Firebase listener.');
+      unsubscribe();
+    }
   }, []);
 
   useEffect(() => {
     if (isReady && !isEqual(state, initialState)) {
-      const docRef = doc(db, 'state', 'appState');
-      setDoc(docRef, state, { merge: true });
+      const dbRef = ref(db, 'state/appState');
+      set(dbRef, state);
     }
   }, [state, isReady]);
 

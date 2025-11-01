@@ -2,8 +2,8 @@ const db = require('../config/db');
 
 const getData = async (req, res) => {
   try {
-    const snapshot = await db.collection('data').get();
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const snapshot = await db.ref('data').once('value');
+    const data = snapshot.val();
     res.json(data);
   } catch (error) {
     res.status(500).send(error.message);
@@ -13,8 +13,9 @@ const getData = async (req, res) => {
 const postData = async (req, res) => {
   try {
     const newData = req.body;
-    const docRef = await db.collection('data').add(newData);
-    res.status(201).json({ id: docRef.id });
+    const newPostRef = db.ref('data').push();
+    await newPostRef.set(newData);
+    res.status(201).json({ id: newPostRef.key });
   } catch (error) {
     res.status(500).send(error.message);
   }

@@ -1,6 +1,5 @@
 import React from 'react';
 import { AppProvider } from './store/AppContext';
-import { ThemeProvider } from './components/ThemeProvider';
 import { MainLayout } from './components/MainLayout';
 import { useAppState } from './hooks/useAppState';
 
@@ -21,9 +20,7 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <AppProvider>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-        <AppContent />
-      </ThemeProvider>
+      <AppContent />
     </AppProvider>
   );
 }
