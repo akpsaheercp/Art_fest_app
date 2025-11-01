@@ -1,9 +1,5 @@
-
-import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useState } from 'react';
-import { AppState, Action, ItemType, Result } from '../types';
-import { db } from '../firebase/config';
-import { ref, onValue, set } from 'firebase/database';
-import { isEqual } from 'lodash';
+import React, { createContext, useReducer, useEffect, ReactNode, Dispatch } from 'react';
+import { AppState, Action, ItemType, Result, TabulationEntry } from '../types';
 
 const initialState: AppState = {
   settings: {
@@ -193,68 +189,33 @@ const appReducer = (state: AppState, action: Action): AppState => {
   }
 };
 
-export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action>, connectionStatus: boolean }>(({
+export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action> }>({
   state: initialState,
   dispatch: () => null,
-  connectionStatus: false,
-}));
+});
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const [connectionStatus, setConnectionStatus] = useState(false);
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const isInitialMount = useRef(true);
-  const stateRef = useRef(state);
 
   useEffect(() => {
-    stateRef.current = state;
+    const savedState = localStorage.getItem('artFestState');
+    if (savedState) {
+      try {
+        const parsedState = JSON.parse(savedState);
+        dispatch({ type: 'SET_STATE', payload: parsedState });
+      } catch (error) {
+        console.error("Failed to parse state from localStorage", error);
+        localStorage.removeItem('artFestState');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('artFestState', JSON.stringify(state));
   }, [state]);
 
-  useEffect(() => {
-    const connectedRef = ref(db, '.info/connected');
-    const unsubscribe = onValue(connectedRef, (snap) => {
-      const connected = snap.val() === true;
-      setConnectionStatus(connected);
-      console.log(connected ? 'Firebase connected' : 'Firebase disconnected');
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const dbRef = ref(db, 'state/appState');
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const remoteState = snapshot.val() as AppState;
-        if (!isEqual(stateRef.current, remoteState)) {
-          dispatch({ type: 'SET_STATE', payload: remoteState });
-        }
-      } else {
-        set(dbRef, initialState);
-      }
-      setInitialDataLoaded(true);
-    }, (error) => {
-      console.error('Firebase onValue error:', error);
-      setInitialDataLoaded(true);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    if (connectionStatus && initialDataLoaded) {
-      const dbRef = ref(db, 'state/appState');
-      set(dbRef, state);
-    }
-  }, [state, connectionStatus, initialDataLoaded]);
-
   return (
-    <AppContext.Provider value={{ state, dispatch, connectionStatus }}>
+    <AppContext.Provider value={{ state, dispatch }}>
       {children}
     </AppContext.Provider>
   );
