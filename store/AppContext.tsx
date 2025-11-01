@@ -1,5 +1,8 @@
-import React, { createContext, useReducer, useEffect, ReactNode, Dispatch } from 'react';
+import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef } from 'react';
 import { AppState, Action, ItemType, Result, TabulationEntry } from '../types';
+import { db } from '../firebase/config';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { isEqual } from 'lodash';
 
 const initialState: AppState = {
   settings: {
@@ -189,33 +192,48 @@ const appReducer = (state: AppState, action: Action): AppState => {
   }
 };
 
-export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action> }>({
+export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action>, isReady: boolean }>({
   state: initialState,
   dispatch: () => null,
+  isReady: false,
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [isReady, setIsReady] = React.useState(false);
+  const stateRef = useRef(state);
 
   useEffect(() => {
-    const savedState = localStorage.getItem('artFestState');
-    if (savedState) {
-      try {
-        const parsedState = JSON.parse(savedState);
-        dispatch({ type: 'SET_STATE', payload: parsedState });
-      } catch (error) {
-        console.error("Failed to parse state from localStorage", error);
-        localStorage.removeItem('artFestState');
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    const docRef = doc(db, 'state', 'appState');
+
+    const unsubscribe = onSnapshot(docRef, (doc) => {
+      if (doc.exists()) {
+        const remoteState = doc.data() as AppState;
+        if (!isEqual(stateRef.current, remoteState)) {
+          dispatch({ type: 'SET_STATE', payload: remoteState });
+        }
+      } else {
+        setDoc(docRef, initialState);
       }
-    }
+      setIsReady(true);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('artFestState', JSON.stringify(state));
-  }, [state]);
+    if (isReady && !isEqual(state, initialState)) {
+      const docRef = doc(db, 'state', 'appState');
+      setDoc(docRef, state, { merge: true });
+    }
+  }, [state, isReady]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, isReady }}>
       {children}
     </AppContext.Provider>
   );

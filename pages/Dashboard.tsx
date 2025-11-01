@@ -1,11 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
 import { Users, ClipboardList, Calendar, Trophy, UserPlus, Edit3, BarChart2, Settings } from 'lucide-react';
 import { TABS } from '../constants';
-import io from 'socket.io-client';
-
-const socket = io('http://localhost:3001');
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -24,17 +21,7 @@ const StatCard: React.FC<{ icon: React.ElementType, title: string, value: string
 );
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
-  const { state, setState } = useAppState();
-
-  useEffect(() => {
-    socket.on('data-update', (data) => {
-      setState(prevState => ({ ...prevState, ...data[0] }));
-    });
-
-    return () => {
-      socket.off('data-update');
-    }
-  }, [setState]);
+  const { state } = useAppState();
 
   const stats = {
     participants: state.participants.length,
