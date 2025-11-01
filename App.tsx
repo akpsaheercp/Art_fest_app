@@ -1,9 +1,8 @@
 import React from 'react';
-import { AppProvider } from './store/AppContext';
 import { MainLayout } from './components/MainLayout';
 import { useAppState } from './hooks/useAppState';
 
-const AppContent: React.FC = () => {
+function App() {
   const { isReady } = useAppState();
 
   if (!isReady) {
@@ -15,14 +14,6 @@ const AppContent: React.FC = () => {
   }
 
   return <MainLayout />;
-}
-
-function App() {
-  return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
-  );
 }
 
 export default App;

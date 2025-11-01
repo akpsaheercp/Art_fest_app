@@ -227,6 +227,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsReady(true);
     }, (error) => {
       console.error('Firebase onValue error:', error);
+      setIsReady(true);
     });
 
     return () => {
