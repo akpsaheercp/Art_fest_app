@@ -193,16 +193,17 @@ const appReducer = (state: AppState, action: Action): AppState => {
   }
 };
 
-export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action>, connectionStatus: boolean }>({
+export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action>, connectionStatus: boolean }>(({
   state: initialState,
   dispatch: () => null,
   connectionStatus: false,
-});
+}));
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const [connectionStatus, setConnectionStatus] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const isInitialMount = useRef(true);
   const stateRef = useRef(state);
 
   useEffect(() => {
@@ -241,6 +242,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     if (connectionStatus && initialDataLoaded) {
       const dbRef = ref(db, 'state/appState');
       set(dbRef, state);
