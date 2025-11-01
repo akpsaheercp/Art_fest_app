@@ -1,5 +1,5 @@
 
-import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef } from 'react';
+import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useState } from 'react';
 import { AppState, Action, ItemType, Result } from '../types';
 import { db } from '../firebase/config';
 import { ref, onValue, set } from 'firebase/database';
@@ -193,15 +193,16 @@ const appReducer = (state: AppState, action: Action): AppState => {
   }
 };
 
-export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action>, isReady: boolean }>({
+export const AppContext = createContext<{ state: AppState; dispatch: Dispatch<Action>, connectionStatus: boolean }>({
   state: initialState,
   dispatch: () => null,
-  isReady: false,
+  connectionStatus: false,
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const [isReady, setIsReady] = React.useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const stateRef = useRef(state);
 
   useEffect(() => {
@@ -209,42 +210,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [state]);
 
   useEffect(() => {
-    console.log('Setting up Firebase listener...');
-    const dbRef = ref(db, 'state/appState');
+    const connectedRef = ref(db, '.info/connected');
+    const unsubscribe = onValue(connectedRef, (snap) => {
+      const connected = snap.val() === true;
+      setConnectionStatus(connected);
+      console.log(connected ? 'Firebase connected' : 'Firebase disconnected');
+    });
 
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const dbRef = ref(db, 'state/appState');
     const unsubscribe = onValue(dbRef, (snapshot) => {
-      console.log('Firebase listener triggered.');
       if (snapshot.exists()) {
-        console.log('Data exists, applying remote state.');
         const remoteState = snapshot.val() as AppState;
         if (!isEqual(stateRef.current, remoteState)) {
           dispatch({ type: 'SET_STATE', payload: remoteState });
         }
       } else {
-        console.log('No data found, setting initial state in DB.');
         set(dbRef, initialState);
       }
-      setIsReady(true);
+      setInitialDataLoaded(true);
     }, (error) => {
       console.error('Firebase onValue error:', error);
-      setIsReady(true);
+      setInitialDataLoaded(true);
     });
 
-    return () => {
-      console.log('Cleaning up Firebase listener.');
-      unsubscribe();
-    }
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (isReady && !isEqual(state, initialState)) {
+    if (connectionStatus && initialDataLoaded) {
       const dbRef = ref(db, 'state/appState');
       set(dbRef, state);
     }
-  }, [state, isReady]);
+  }, [state, connectionStatus, initialDataLoaded]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, isReady }}>
+    <AppContext.Provider value={{ state, dispatch, connectionStatus }}>
       {children}
     </AppContext.Provider>
   );
