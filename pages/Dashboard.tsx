@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
-import { Users, ClipboardList, Calendar, Trophy, UserPlus, Edit3, BarChart2, Settings } from 'lucide-react';
+import { Users, ClipboardList, Calendar, Trophy, UserPlus, Edit3, BarChart2, Settings, Crown } from 'lucide-react';
 import { TABS } from '../constants';
+import { ItemType } from '../types';
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -31,6 +32,44 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
     resultsDeclared: state.results.filter(r => r.declared).length
   };
 
+  const teamPoints = useMemo(() => {
+    const { teams, results, items, participants, gradePoints } = state;
+    const tPoints: { [key: string]: number } = {};
+    teams.forEach(t => tPoints[t.id] = 0);
+
+    results.forEach(result => {
+        if (!result.declared) return;
+        const item = items.find(i => i.id === result.itemId);
+        if (!item) return;
+
+        result.winners.forEach(winner => {
+            const participant = participants.find(p => p.id === winner.participantId);
+            if (!participant) return;
+
+            let pointsWon = 0;
+            if (winner.position === 1) pointsWon += item.points.first;
+            else if (winner.position === 2) pointsWon += item.points.second;
+            else if (winner.position === 3) pointsWon += item.points.third;
+
+            if (winner.gradeId) {
+                const gradeConfig = item.type === ItemType.SINGLE ? gradePoints.single : gradePoints.group;
+                const grade = gradeConfig.find(g => g.id === winner.gradeId);
+                if (grade) pointsWon += grade.points;
+            }
+            
+            if (tPoints[participant.teamId] !== undefined) {
+                tPoints[participant.teamId] += pointsWon;
+            }
+        });
+    });
+    
+    return teams
+        .map(team => ({ ...team, points: tPoints[team.id] || 0 }))
+        .sort((a, b) => b.points - a.points);
+  }, [state.teams, state.results, state.items, state.participants, state.gradePoints]);
+
+  const topScore = teamPoints[0]?.points || 0;
+
   return (
     <div className="space-y-8">
        {/* Hero Banner */}
@@ -40,8 +79,43 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
       </div>
 
       {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 space-y-6">
+              <Card title="Team Point Status">
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                    {teamPoints.length > 0 ? teamPoints.map((team, index) => {
+                        const progress = topScore > 0 ? (team.points / topScore) * 100 : 0;
+                        const isWinner = index === 0 && team.points > 0;
+                        return (
+                            <div key={team.id} className={`p-3 rounded-lg transition-all ${isWinner ? 'bg-amber-100 dark:bg-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-800/50'}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-3">
+                                        {isWinner ? (
+                                            <Crown className="w-6 h-6 text-amber-500" />
+                                        ) : (
+                                            <span className="w-6 text-center font-bold text-zinc-500 dark:text-zinc-400">{index + 1}</span>
+                                        )}
+                                        <span className="font-bold text-md text-zinc-800 dark:text-zinc-100">{team.name}</span>
+                                    </div>
+                                    <span className={`font-bold text-lg ${isWinner ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400'}`}>{team.points} pts</span>
+                                </div>
+                                <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2.5">
+                                    <div 
+                                        className={`${isWinner ? 'bg-amber-400' : 'bg-teal-500'} h-2.5 rounded-full transition-all duration-500 ease-out`} 
+                                        style={{ width: `${progress}%` }}
+                                        title={`${team.points} points`}
+                                    ></div>
+                                </div>
+                            </div>
+                        )
+                    }) : (
+                        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 py-8">No points recorded yet.</p>
+                    )}
+                </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-3 space-y-6">
               <Card title="Event Overview">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                       <StatCard icon={Users} title="Total Participants" value={stats.participants} color="teal" onClick={() => setActiveTab(TABS.DATA_ENTRY)} />
@@ -51,37 +125,40 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
                       <StatCard icon={Trophy} title="Results Declared" value={stats.resultsDeclared} color="rose" onClick={() => setActiveTab(TABS.TABULATION)} />
                   </div>
               </Card>
-
-              <Card title="Quick Actions">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <button onClick={() => setActiveTab(TABS.GENERAL_SETTINGS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                          <Settings className="h-8 w-8 text-teal-500 mb-2" />
-                          <span className="text-sm font-medium">Event Setup</span>
-                      </button>
-                      <button onClick={() => setActiveTab(TABS.DATA_ENTRY)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                          <UserPlus className="h-8 w-8 text-teal-500 mb-2" />
-                          <span className="text-sm font-medium">Add Participant</span>
-                      </button>
-                      <button onClick={() => setActiveTab(TABS.TABULATION)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                          <Edit3 className="h-8 w-8 text-teal-500 mb-2" />
-                          <span className="text-sm font-medium">Enter Marks</span>
-                      </button>
-                      <button onClick={() => setActiveTab(TABS.POINTS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                          <BarChart2 className="h-8 w-8 text-teal-500 mb-2" />
-                          <span className="text-sm font-medium">View Points</span>
-                      </button>
-                  </div>
-              </Card>
           </div>
-
-          <div className="lg:col-span-1 space-y-6">
-              <Card title="About Art Fest Manager">
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                      This is a comprehensive tool to manage cultural and artistic festivals. 
-                      From initial setup to participant registration, AI-powered scheduling, tabulation, and reporting, this app covers every aspect of festival organization.
-                  </p>
-              </Card>
-          </div>
+          
+           <div className="lg:col-span-5 grid grid-cols-1 lg:grid-cols-5 gap-6">
+             <div className="lg:col-span-3">
+                <Card title="Quick Actions">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <button onClick={() => setActiveTab(TABS.GENERAL_SETTINGS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+                            <Settings className="h-8 w-8 text-teal-500 mb-2" />
+                            <span className="text-sm font-medium">Event Setup</span>
+                        </button>
+                        <button onClick={() => setActiveTab(TABS.DATA_ENTRY)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+                            <UserPlus className="h-8 w-8 text-teal-500 mb-2" />
+                            <span className="text-sm font-medium">Add Participant</span>
+                        </button>
+                        <button onClick={() => setActiveTab(TABS.TABULATION)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+                            <Edit3 className="h-8 w-8 text-teal-500 mb-2" />
+                            <span className="text-sm font-medium">Enter Marks</span>
+                        </button>
+                        <button onClick={() => setActiveTab(TABS.POINTS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+                            <BarChart2 className="h-8 w-8 text-teal-500 mb-2" />
+                            <span className="text-sm font-medium">View Points</span>
+                        </button>
+                    </div>
+                </Card>
+             </div>
+             <div className="lg:col-span-2">
+                <Card title="About Art Fest Manager">
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                        This is a comprehensive tool to manage cultural and artistic festivals. 
+                        From initial setup to participant registration, AI-powered scheduling, tabulation, and reporting, this app covers every aspect of festival organization.
+                    </p>
+                </Card>
+              </div>
+           </div>
       </div>
     </div>
   );
