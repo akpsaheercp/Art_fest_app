@@ -6,6 +6,7 @@ import { ItemType } from '../types';
 
 const PointsPage: React.FC = () => {
     const { state } = useAppState();
+    const { teams, categories, participants, results, items, gradePoints } = state;
 
     const [filters, setFilters] = useState({ teamId: '', categoryId: '' });
     const [teamSort, setTeamSort] = useState<{ key: 'name' | 'points'; dir: 'asc' | 'desc' }>({ key: 'points', dir: 'desc' });
@@ -13,24 +14,24 @@ const PointsPage: React.FC = () => {
 
     const { teamPoints, categoryWisePoints, individualPoints } = useMemo(() => {
         const tPoints: { [key: string]: number } = {};
-        state.teams.forEach(t => tPoints[t.id] = 0);
+        teams.forEach(t => tPoints[t.id] = 0);
 
         const cPoints: { [key: string]: { [key: string]: number } } = {};
-        state.teams.forEach(t => {
+        teams.forEach(t => {
             cPoints[t.id] = {};
-            state.categories.forEach(c => cPoints[t.id][c.id] = 0);
+            categories.forEach(c => cPoints[t.id][c.id] = 0);
         });
 
         const iPoints: { [key: string]: number } = {};
-        state.participants.forEach(p => iPoints[p.id] = 0);
+        participants.forEach(p => iPoints[p.id] = 0);
 
-        state.results.forEach(result => {
+        results.forEach(result => {
             if (!result.declared) return;
-            const item = state.items.find(i => i.id === result.itemId);
+            const item = items.find(i => i.id === result.itemId);
             if (!item) return;
 
             result.winners.forEach(winner => {
-                const participant = state.participants.find(p => p.id === winner.participantId);
+                const participant = participants.find(p => p.id === winner.participantId);
                 if (!participant) return;
 
                 let pointsWon = 0;
@@ -39,7 +40,7 @@ const PointsPage: React.FC = () => {
                 else if (winner.position === 3) pointsWon += item.points.third;
 
                 if (winner.gradeId) {
-                    const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
+                    const gradeConfig = item.type === ItemType.SINGLE ? gradePoints.single : gradePoints.group;
                     const grade = gradeConfig.find(g => g.id === winner.gradeId);
                     if (grade) pointsWon += grade.points;
                 }
@@ -50,28 +51,29 @@ const PointsPage: React.FC = () => {
             });
         });
 
-        return { teamPoints, categoryWisePoints, individualPoints };
-    }, [state.teams, state.categories, state.participants, state.results, state.items, state.gradePoints]);
+        return { teamPoints: tPoints, categoryWisePoints: cPoints, individualPoints: iPoints };
+    }, [teams, categories, participants, results, items, gradePoints]);
 
     const getTeamName = useCallback(
-        (id: string) => state.teams.find(t => t.id === id)?.name || 'N/A',
-        [state.teams]
+        (id: string) => teams.find(t => t.id === id)?.name || 'N/A',
+        [teams]
     );
 
     const sortedTeams = useMemo(() => {
-        return [...state.teams]
+        return [...teams]
             .map(team => ({ ...team, points: teamPoints[team.id] || 0 }))
             .sort((a, b) => {
-                const valA = teamSort.key === 'name' ? a.name : a.points;
-                const valB = teamSort.key === 'name' ? b.name : b.points;
-                if (valA < valB) return teamSort.dir === 'asc' ? -1 : 1;
-                if (valA > valB) return teamSort.dir === 'asc' ? 1 : -1;
-                return 0;
+                const key = teamSort.key;
+                const direction = teamSort.dir === 'asc' ? 1 : -1;
+                if (key === 'points') {
+                    return (a.points - b.points) * direction;
+                }
+                return a.name.localeCompare(b.name) * direction;
             });
-    }, [state.teams, teamPoints, teamSort]);
+    }, [teams, teamPoints, teamSort]);
 
     const filteredAndSortedIndividuals = useMemo(() => {
-        return [...state.participants]
+        return [...participants]
             .map(p => ({ ...p, points: individualPoints[p.id] || 0, teamName: getTeamName(p.teamId) }))
             .filter(p => p.points > 0)
             .filter(p => filters.teamId ? p.teamId === filters.teamId : true)
@@ -86,16 +88,14 @@ const PointsPage: React.FC = () => {
                 if (key === 'points') {
                     const numA = Number(valueA) || 0;
                     const numB = Number(valueB) || 0;
-                    if (numA < numB) return -1 * direction;
-                    if (numA > numB) return 1 * direction;
-                    return 0;
+                    return (numA - numB) * direction;
                 }
                 
                 const stringA = String(valueA || '');
                 const stringB = String(valueB || '');
                 return stringA.localeCompare(stringB) * direction;
             });
-    }, [state.participants, individualPoints, filters, individualSort, getTeamName]);
+    }, [participants, individualPoints, filters, individualSort, getTeamName]);
 
     const handleTeamSort = (key: 'name' | 'points') => {
         setTeamSort(prev => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
@@ -121,14 +121,14 @@ const PointsPage: React.FC = () => {
                         <label className="block text-sm font-medium mb-1">Filter by Team</label>
                         <select value={filters.teamId} onChange={e => setFilters({...filters, teamId: e.target.value})} className={inputClasses}>
                             <option value="">All Teams</option>
-                            {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1">Filter by Category</label>
                         <select value={filters.categoryId} onChange={e => setFilters({...filters, categoryId: e.target.value})} className={inputClasses}>
                             <option value="">All Categories</option>
-                            {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                 </div>
@@ -166,10 +166,10 @@ const PointsPage: React.FC = () => {
                 </Card>
 
                  <Card title="Category Wise Team Points">
-                    {state.categories.length > 0 ? (
+                    {categories.length > 0 ? (
                         <div className="space-y-4 max-h-96 overflow-y-auto">
-                            {state.categories.map(category => {
-                                const sortedTeamsForCategory = state.teams
+                            {categories.map(category => {
+                                const sortedTeamsForCategory = teams
                                     .map(team => ({ name: team.name, points: categoryWisePoints[team.id]?.[category.id] || 0 }))
                                     .filter(t => t.points > 0)
                                     .sort((a,b) => b.points - a.points);
