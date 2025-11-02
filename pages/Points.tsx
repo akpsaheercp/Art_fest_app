@@ -1,14 +1,17 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
-import { Trophy } from 'lucide-react';
+import { Trophy, ArrowUpDown } from 'lucide-react';
 import { ItemType } from '../types';
 
 const PointsPage: React.FC = () => {
     const { state } = useAppState();
 
+    const [filters, setFilters] = useState({ teamId: '', categoryId: '' });
+    const [teamSort, setTeamSort] = useState<{ key: 'name' | 'points'; dir: 'asc' | 'desc' }>({ key: 'points', dir: 'desc' });
+    const [individualSort, setIndividualSort] = useState<{ key: 'name' | 'teamName' | 'points'; dir: 'asc' | 'desc' }>({ key: 'points', dir: 'desc' });
+
     const { teamPoints, categoryWisePoints, individualPoints } = useMemo(() => {
-        // Initialize structures
         const tPoints: { [key: string]: number } = {};
         state.teams.forEach(t => tPoints[t.id] = 0);
 
@@ -21,10 +24,8 @@ const PointsPage: React.FC = () => {
         const iPoints: { [key: string]: number } = {};
         state.participants.forEach(p => iPoints[p.id] = 0);
 
-        // Process results
         state.results.forEach(result => {
             if (!result.declared) return;
-
             const item = state.items.find(i => i.id === result.itemId);
             if (!item) return;
 
@@ -33,123 +34,187 @@ const PointsPage: React.FC = () => {
                 if (!participant) return;
 
                 let pointsWon = 0;
-
-                // Position points
                 if (winner.position === 1) pointsWon += item.points.first;
                 else if (winner.position === 2) pointsWon += item.points.second;
                 else if (winner.position === 3) pointsWon += item.points.third;
 
-                // Grade points
                 if (winner.gradeId) {
                     const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
                     const grade = gradeConfig.find(g => g.id === winner.gradeId);
-                    if (grade) {
-                        pointsWon += grade.points;
-                    }
+                    if (grade) pointsWon += grade.points;
                 }
                 
-                // Aggregate points
-                if (tPoints[participant.teamId] !== undefined) {
-                    tPoints[participant.teamId] += pointsWon;
-                }
-                if (cPoints[participant.teamId]?.[result.categoryId] !== undefined) {
-                    cPoints[participant.teamId][result.categoryId] += pointsWon;
-                }
-                if (iPoints[participant.id] !== undefined) {
-                    iPoints[participant.id] += pointsWon;
-                }
+                if (tPoints[participant.teamId] !== undefined) tPoints[participant.teamId] += pointsWon;
+                if (cPoints[participant.teamId]?.[result.categoryId] !== undefined) cPoints[participant.teamId][result.categoryId] += pointsWon;
+                if (iPoints[participant.id] !== undefined) iPoints[participant.id] += pointsWon;
             });
         });
 
-        return { teamPoints: tPoints, categoryWisePoints: cPoints, individualPoints: iPoints };
-    }, [state.results, state.items, state.participants, state.teams, state.gradePoints, state.categories]);
+        return { teamPoints, categoryWisePoints, individualPoints };
+    }, [state]);
 
-    // Sorting for display
-    const sortedTeams = useMemo(() => {
-        return [...state.teams].sort((a, b) => (teamPoints[b.id] || 0) - (teamPoints[a.id] || 0));
-    }, [state.teams, teamPoints]);
-
-    const sortedIndividuals = useMemo(() => {
-        return [...state.participants]
-            .map(p => ({ ...p, points: individualPoints[p.id] || 0 }))
-            .filter(p => p.points > 0)
-            .sort((a, b) => b.points - a.points)
-            .slice(0, 10); // Top 10
-    }, [state.participants, individualPoints]);
-    
     const getTeamName = (id: string) => state.teams.find(t => t.id === id)?.name || 'N/A';
 
+    const sortedTeams = useMemo(() => {
+        return [...state.teams]
+            .map(team => ({ ...team, points: teamPoints[team.id] || 0 }))
+            .sort((a, b) => {
+                const valA = teamSort.key === 'name' ? a.name : a.points;
+                const valB = teamSort.key === 'name' ? b.name : b.points;
+                if (valA < valB) return teamSort.dir === 'asc' ? -1 : 1;
+                if (valA > valB) return teamSort.dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+    }, [state.teams, teamPoints, teamSort]);
+
+    const filteredAndSortedIndividuals = useMemo(() => {
+        return [...state.participants]
+            .map(p => ({ ...p, points: individualPoints[p.id] || 0, teamName: getTeamName(p.teamId) }))
+            .filter(p => p.points > 0)
+            .filter(p => filters.teamId ? p.teamId === filters.teamId : true)
+            .filter(p => filters.categoryId ? p.categoryId === filters.categoryId : true)
+            .sort((a, b) => {
+                const valA = a[individualSort.key];
+                const valB = b[individualSort.key];
+                if (typeof valA === 'string' && typeof valB === 'string') {
+                    return individualSort.dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                if (valA < valB) return individualSort.dir === 'asc' ? -1 : 1;
+                if (valA > valB) return individualSort.dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+    }, [state.participants, individualPoints, filters, individualSort, getTeamName]);
+
+    const handleTeamSort = (key: 'name' | 'points') => {
+        setTeamSort(prev => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
+    };
+
+    const handleIndividualSort = (key: 'name' | 'teamName' | 'points') => {
+        setIndividualSort(prev => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
+    };
+    
+    const renderSortIcon = (currentSort: { key: string, dir: string }, sortKey: string) => (
+        <ArrowUpDown size={14} className={`ml-1 inline-block transition-transform ${currentSort.key === sortKey ? 'text-teal-500' : 'text-zinc-400'} ${currentSort.key === sortKey && currentSort.dir === 'desc' ? 'rotate-180' : ''}`} />
+    );
+
+    const inputClasses = "block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    
     return (
         <div className="space-y-6">
             <h2 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">Points Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <Card title="Filter & Find">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Filter by Team</label>
+                        <select value={filters.teamId} onChange={e => setFilters({...filters, teamId: e.target.value})} className={inputClasses}>
+                            <option value="">All Teams</option>
+                            {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Filter by Category</label>
+                        <select value={filters.categoryId} onChange={e => setFilters({...filters, categoryId: e.target.value})} className={inputClasses}>
+                            <option value="">All Categories</option>
+                            {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card title="Total Team Points">
-                   {sortedTeams.length > 0 ? (
-                       <ul className="space-y-2">
-                            {sortedTeams.map((team, index) => (
-                                <li key={team.id} className={`flex justify-between items-center p-2 rounded-md ${index === 0 ? 'bg-teal-100 dark:bg-teal-900/50' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
-                                    <div className="flex items-center">
-                                        {index === 0 && <Trophy className="w-5 h-5 mr-2 text-yellow-500" />}
-                                        <span className="font-medium">{team.name}</span>
-                                    </div>
-                                    <span className="font-bold text-teal-600 dark:text-teal-400">{teamPoints[team.id]} Pts</span>
-                                </li>
-                            ))}
-                       </ul>
-                   ) : (
-                       <p className="text-sm text-zinc-500 dark:text-zinc-400">No points recorded yet.</p>
-                   )}
+                   <div className="overflow-x-auto">
+                        <table className="min-w-full">
+                            <thead className="border-b border-zinc-200 dark:border-zinc-700">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button onClick={() => handleTeamSort('name')} className="flex items-center">Team {renderSortIcon(teamSort, 'name')}</button>
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                        <button onClick={() => handleTeamSort('points')} className="flex items-center">Points {renderSortIcon(teamSort, 'points')}</button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedTeams.map((team, index) => (
+                                    <tr key={team.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                            <div className="flex items-center">
+                                                {teamSort.key === 'points' && teamSort.dir === 'desc' && index === 0 && <Trophy className="w-5 h-5 mr-2 text-yellow-500" />}
+                                                {team.name}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{team.points}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                   </div>
                 </Card>
 
                  <Card title="Category Wise Team Points">
                     {state.categories.length > 0 ? (
-                        <div className="space-y-4">
-                            {state.categories.map(category => (
+                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {state.categories.map(category => {
+                                const sortedTeamsForCategory = state.teams
+                                    .map(team => ({ name: team.name, points: categoryWisePoints[team.id]?.[category.id] || 0 }))
+                                    .filter(t => t.points > 0)
+                                    .sort((a,b) => b.points - a.points);
+                                
+                                if (sortedTeamsForCategory.length === 0) return null;
+
+                                return (
                                 <div key={category.id}>
                                     <h4 className="font-semibold mb-2 text-zinc-700 dark:text-zinc-300">{category.name}</h4>
                                     <ul className="space-y-1 text-sm">
-                                        {state.teams.map(team => {
-                                            const points = categoryWisePoints[team.id]?.[category.id] || 0;
-                                            if (points > 0) {
-                                                return (
-                                                    <li key={`${team.id}-${category.id}`} className="flex justify-between items-center p-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded">
-                                                        <span>{team.name}</span>
-                                                        <span className="font-semibold">{points} Pts</span>
-                                                    </li>
-                                                );
-                                            }
-                                            return null;
-                                        })}
+                                        {sortedTeamsForCategory.map(team => (
+                                            <li key={`${team.name}-${category.id}`} className="flex justify-between items-center p-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded">
+                                                <span>{team.name}</span>
+                                                <span className="font-semibold">{team.points} Pts</span>
+                                            </li>
+                                        ))}
                                     </ul>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">No categories found.</p>
                     )}
                 </Card>
-
-                 <Card title="Top Individual Performers">
-                     {sortedIndividuals.length > 0 ? (
-                        <ul className="space-y-2">
-                            {sortedIndividuals.map((p, index) => (
-                                <li key={p.id} className="flex justify-between items-center p-2 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm">
-                                    <div className="flex items-center">
-                                        <span className="font-bold mr-2">{index + 1}.</span>
-                                        <div>
-                                            <div className="font-medium">{p.name}</div>
-                                            <div className="text-xs text-zinc-500 dark:text-zinc-400">{getTeamName(p.teamId)}</div>
-                                        </div>
-                                    </div>
-                                    <span className="font-bold text-teal-600 dark:text-teal-400">{p.points} Pts</span>
-                                </li>
-                            ))}
-                        </ul>
-                     ) : (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">No individual points recorded yet.</p>
-                     )}
-                </Card>
             </div>
+            
+            <Card title="Individual Performers">
+                 <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="border-b border-zinc-200 dark:border-zinc-700">
+                           <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Rank</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button onClick={() => handleIndividualSort('name')} className="flex items-center">Performer {renderSortIcon(individualSort, 'name')}</button>
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button onClick={() => handleIndividualSort('teamName')} className="flex items-center">Team {renderSortIcon(individualSort, 'teamName')}</button>
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    <button onClick={() => handleIndividualSort('points')} className="flex items-center">Points {renderSortIcon(individualSort, 'points')}</button>
+                                </th>
+                           </tr>
+                        </thead>
+                         <tbody>
+                            {filteredAndSortedIndividuals.map((p, index) => (
+                                <tr key={p.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{index + 1}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.teamName}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{p.points}</td>
+                                </tr>
+                            ))}
+                       </tbody>
+                    </table>
+                </div>
+            </Card>
         </div>
     );
 };

@@ -57,19 +57,99 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
   useEffect(() => {
     if (!isSearchable || !reportContentRef.current) return;
 
-    const table = reportContentRef.current.querySelector('table');
-    if (!table) return;
-
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-      const rowText = (row as HTMLElement).innerText.toLowerCase();
-      if (rowText.includes(searchTerm.toLowerCase())) {
-        (row as HTMLElement).style.display = '';
-      } else {
-        (row as HTMLElement).style.display = 'none';
-      }
+    const tables = reportContentRef.current.querySelectorAll('table');
+    tables.forEach(table => {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const rowText = (row as HTMLElement).innerText.toLowerCase();
+            if (rowText.includes(searchTerm.toLowerCase())) {
+                (row as HTMLElement).style.display = '';
+            } else {
+                (row as HTMLElement).style.display = 'none';
+            }
+        });
     });
   }, [searchTerm, isSearchable, content]);
+
+  // Effect for setting up table sorting
+  useEffect(() => {
+    if (!isOpen || !reportContentRef.current) return;
+
+    const tables = reportContentRef.current.querySelectorAll('table');
+    if (tables.length === 0) return;
+
+    const clickHandler = (e: Event) => {
+      const header = e.currentTarget as HTMLElement;
+      const table = header.closest('table');
+      if (!table) return;
+
+      const columnIndex = parseInt(header.dataset.columnIndex || '0', 10);
+      const currentDirection = header.dataset.sortDirection;
+      const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+      
+      // Reset other headers in the same table
+      table.querySelectorAll('thead th[data-sortable="true"]').forEach(th => {
+        if (th !== header) {
+          delete (th as HTMLElement).dataset.sortDirection;
+          const indicator = th.querySelector('.sort-indicator');
+          if (indicator) indicator.innerHTML = ' \u2195';
+        }
+      });
+
+      header.dataset.sortDirection = newDirection;
+      const indicator = header.querySelector('.sort-indicator');
+      if (indicator) {
+        indicator.innerHTML = newDirection === 'asc' ? ' \u2191' : ' \u2193';
+      }
+
+      const tbody = table.querySelector('tbody');
+      if (!tbody) return;
+
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const sortedRows = rows.sort((a, b) => {
+        const aVal = a.cells[columnIndex]?.innerText || '';
+        const bVal = b.cells[columnIndex]?.innerText || '';
+        const aNum = parseFloat(aVal.replace(/,/g, ''));
+        const bNum = parseFloat(bVal.replace(/,/g, ''));
+
+        let comparison = 0;
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          comparison = aNum - bNum;
+        } else {
+          comparison = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
+        }
+        
+        return newDirection === 'asc' ? comparison : -comparison;
+      });
+
+      sortedRows.forEach(row => tbody.appendChild(row));
+    };
+    
+    const headers: NodeListOf<HTMLElement>[] = [];
+    tables.forEach(table => {
+      const tableHeaders = table.querySelectorAll<HTMLElement>('thead th[data-sortable="true"]');
+      tableHeaders.forEach(header => {
+        header.style.cursor = 'pointer';
+        if (!header.querySelector('.sort-indicator')) {
+            const indicator = document.createElement('span');
+            indicator.className = 'sort-indicator';
+            indicator.style.display = 'inline-block';
+            indicator.innerHTML = ' \u2195'; // Up-down arrow
+            header.appendChild(indicator);
+        }
+        header.addEventListener('click', clickHandler);
+      });
+      headers.push(tableHeaders);
+    });
+    
+    return () => {
+      headers.forEach(tableHeaders => {
+          tableHeaders.forEach(header => {
+              header.removeEventListener('click', clickHandler);
+          });
+      });
+    };
+  }, [isOpen, content]);
 
 
   const handlePrint = () => {
@@ -92,7 +172,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
               theme: { extend: { colors: { teal: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4', 400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a', 950: '#042f2e' }, zinc: { 50: '#fafafa', 100: '#f4f4f5', 200: '#e4e4e7', 300: '#d4d4d8', 400: '#a1a1aa', 500: '#71717a', 600: '#52525b', 700: '#3f3f46', 800: '#27272a', 900: '#18181b', 950: '#09090b' }, }, }, },
             };
           </script>
-          <style> body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; } </style>
+          <style> body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; } .sort-indicator { display: none !important; } </style>
         </head>
         <body>
           <div class="p-6">
@@ -138,7 +218,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
                 <div className="flex-grow">
                     <input
                         type="text"
-                        placeholder="Search in report..."
+                        placeholder={`Find in ${title}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
@@ -205,7 +285,7 @@ const ReportsPage: React.FC = () => {
   `;
 
   const generateParticipantsList = () => {
-    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th>Chest No.</th><th>Name</th><th>Team</th><th>Category</th></tr></thead><tbody>`;
+    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th data-sortable="true" data-column-index="0">Chest No.</th><th data-sortable="true" data-column-index="1">Name</th><th data-sortable="true" data-column-index="2">Team</th><th data-sortable="true" data-column-index="3">Category</th></tr></thead><tbody>`;
     [...state.participants].sort((a,b) => a.chestNumber.localeCompare(b.chestNumber)).forEach(p => {
         html += `<tr><td>${p.chestNumber}</td><td>${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`;
     });
@@ -214,7 +294,7 @@ const ReportsPage: React.FC = () => {
   };
   
   const generateItemsList = () => {
-    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th>Name</th><th>Category</th><th>Type</th><th>Points (1/2/3)</th></tr></thead><tbody>`;
+    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th data-sortable="true" data-column-index="0">Name</th><th data-sortable="true" data-column-index="1">Category</th><th data-sortable="true" data-column-index="2">Type</th><th data-sortable="true" data-column-index="3">Points (1/2/3)</th></tr></thead><tbody>`;
     state.items.forEach(item => {
         html += `<tr><td>${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td>${item.type}</td><td>${item.points.first}/${item.points.second}/${item.points.third}</td></tr>`;
     });
@@ -223,7 +303,7 @@ const ReportsPage: React.FC = () => {
   };
 
   const generateSchedule = () => {
-    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th>Date</th><th>Time</th><th>Item</th><th>Category</th><th>Stage</th></tr></thead><tbody>`;
+    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th data-sortable="true" data-column-index="0">Date</th><th data-sortable="true" data-column-index="1">Time</th><th data-sortable="true" data-column-index="2">Item</th><th data-sortable="true" data-column-index="3">Category</th><th data-sortable="true" data-column-index="4">Stage</th></tr></thead><tbody>`;
     state.schedule.forEach(event => {
         const item = state.items.find(i => i.id === event.itemId);
         const category = state.categories.find(c => c.id === event.categoryId);
@@ -240,7 +320,7 @@ const ReportsPage: React.FC = () => {
       if (!item) return;
       html += `<div class="${index > 0 ? 'page-break-before-always' : ''}">
         <h3>Results: ${item.name} (${getCategoryName(result.categoryId)})</h3>
-        <table><thead><tr><th>Position</th><th>Name</th><th>Team</th><th>Mark</th><th>Grade</th></tr></thead><tbody>`;
+        <table><thead><tr><th data-sortable="true" data-column-index="0">Position</th><th data-sortable="true" data-column-index="1">Name</th><th data-sortable="true" data-column-index="2">Team</th><th data-sortable="true" data-column-index="3">Mark</th><th data-sortable="true" data-column-index="4">Grade</th></tr></thead><tbody>`;
       result.winners.sort((a,b) => a.position - b.position).forEach(winner => {
         const p = getParticipant(winner.participantId);
         const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
@@ -255,8 +335,8 @@ const ReportsPage: React.FC = () => {
   const reports = [
     { id: 'participants', name: 'All Participants List', generator: generateParticipantsList, isSearchable: true },
     { id: 'items', name: 'All Items List', generator: generateItemsList, isSearchable: true },
-    { id: 'schedule', name: 'Full Schedule', generator: generateSchedule, isSearchable: false },
-    { id: 'results', name: 'Item-wise Results', generator: generateResults, isSearchable: false },
+    { id: 'schedule', name: 'Full Schedule', generator: generateSchedule, isSearchable: true },
+    { id: 'results', name: 'Item-wise Results', generator: generateResults, isSearchable: true },
   ];
 
   const handleGenerateReport = (report: typeof reports[0]) => {
