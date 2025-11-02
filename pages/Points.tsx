@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
 import { Trophy, ArrowUpDown } from 'lucide-react';
@@ -51,9 +51,12 @@ const PointsPage: React.FC = () => {
         });
 
         return { teamPoints, categoryWisePoints, individualPoints };
-    }, [state]);
+    }, [state.teams, state.categories, state.participants, state.results, state.items, state.gradePoints]);
 
-    const getTeamName = (id: string) => state.teams.find(t => t.id === id)?.name || 'N/A';
+    const getTeamName = useCallback(
+        (id: string) => state.teams.find(t => t.id === id)?.name || 'N/A',
+        [state.teams]
+    );
 
     const sortedTeams = useMemo(() => {
         return [...state.teams]
@@ -74,14 +77,23 @@ const PointsPage: React.FC = () => {
             .filter(p => filters.teamId ? p.teamId === filters.teamId : true)
             .filter(p => filters.categoryId ? p.categoryId === filters.categoryId : true)
             .sort((a, b) => {
-                const valA = a[individualSort.key];
-                const valB = b[individualSort.key];
-                if (typeof valA === 'string' && typeof valB === 'string') {
-                    return individualSort.dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                const key = individualSort.key;
+                const direction = individualSort.dir === 'asc' ? 1 : -1;
+
+                const valueA = a[key];
+                const valueB = b[key];
+
+                if (key === 'points') {
+                    const numA = Number(valueA) || 0;
+                    const numB = Number(valueB) || 0;
+                    if (numA < numB) return -1 * direction;
+                    if (numA > numB) return 1 * direction;
+                    return 0;
                 }
-                if (valA < valB) return individualSort.dir === 'asc' ? -1 : 1;
-                if (valA > valB) return individualSort.dir === 'asc' ? 1 : -1;
-                return 0;
+                
+                const stringA = String(valueA || '');
+                const stringB = String(valueB || '');
+                return stringA.localeCompare(stringB) * direction;
             });
     }, [state.participants, individualPoints, filters, individualSort, getTeamName]);
 
