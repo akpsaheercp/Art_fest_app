@@ -9,6 +9,7 @@ import TabulationPage from './pages/Tabulation';
 import PointsPage from './pages/Points';
 import ReportsPage from './pages/Reports';
 import DashboardPage from './pages/Dashboard';
+import LoginPage from './pages/LoginPage';
 
 import GeneralSettings from './pages/initialization/GeneralSettings';
 import TeamsAndCategories from './pages/initialization/TeamsAndCategories';
@@ -17,6 +18,7 @@ import GradePoints from './pages/initialization/GradePoints';
 import CodeLetters from './pages/initialization/CodeLetters';
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAuthenticated') === 'true');
   const [activeTab, setActiveTab] = useState<string>(TABS.DASHBOARD);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -37,6 +39,22 @@ const App: React.FC = () => {
 
   const handleSetActiveTab = (tab: string) => {
     setActiveTab(tab);
+  };
+
+  const handleLogin = (user: string, pass: string): boolean => {
+    if (user === 'Amazio' && pass === 'Admin@123') {
+        sessionStorage.setItem('isAuthenticated', 'true');
+        sessionStorage.setItem('username', user);
+        setIsAuthenticated(true);
+        return true;
+    }
+    return false;
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('isAuthenticated');
+    sessionStorage.removeItem('username');
+    setIsAuthenticated(false);
   };
 
 
@@ -69,6 +87,10 @@ const App: React.FC = () => {
     }
   };
 
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />;
+  }
+
   return (
     <div className="relative min-h-screen md:flex font-sans bg-zinc-50 dark:bg-zinc-950">
       {/* Mobile Overlay */}
@@ -87,12 +109,14 @@ const App: React.FC = () => {
         toggleTheme={toggleTheme} 
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        handleLogout={handleLogout}
       />
 
       <div className="flex-1 flex flex-col h-screen max-w-full overflow-hidden">
         <Header 
             pageTitle={activeTab} 
             onMenuClick={() => setIsSidebarOpen(true)}
+            handleLogout={handleLogout}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {renderContent()}

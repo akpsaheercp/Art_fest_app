@@ -1,13 +1,31 @@
 
-import React from 'react';
-import { Menu, Search, UserCircle, Bell } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, Search, UserCircle, Bell, LogOut, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
     pageTitle: string;
     onMenuClick: () => void;
+    handleLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout }) => {
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const profileRef = useRef<HTMLDivElement>(null);
+    const username = sessionStorage.getItem('username') || 'Admin';
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                setIsProfileOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
     return (
         <header className="flex-shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 p-4 flex items-center justify-between shadow-sm z-10">
             {/* Left side: Mobile Menu and Page Title */}
@@ -33,18 +51,44 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick }) => {
                     />
                 </div>
                 
-                {/* User Profile Widget */}
-                <div className="flex items-center gap-2">
-                    <button className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" aria-label="Notifications">
+                <button className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" aria-label="Notifications">
                          <Bell className="h-5 w-5" />
-                    </button>
-                    <div className="flex items-center gap-2 cursor-pointer p-1 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                </button>
+                
+                {/* User Profile Widget */}
+                <div className="relative" ref={profileRef}>
+                    <button
+                        onClick={() => setIsProfileOpen(prev => !prev)} 
+                        className="flex items-center gap-2 cursor-pointer p-1 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                        aria-haspopup="true"
+                        aria-expanded={isProfileOpen}
+                    >
                         <UserCircle className="h-8 w-8 text-zinc-600 dark:text-zinc-300" />
                         <div className="hidden lg:block">
-                            <p className="text-sm font-medium">Admin</p>
+                            <p className="text-sm font-medium text-left">{username}</p>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager</p>
                         </div>
-                    </div>
+                        <ChevronDown size={16} className={`text-zinc-500 dark:text-zinc-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isProfileOpen && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-800 rounded-md shadow-lg py-1 z-20 border border-zinc-200 dark:border-zinc-700">
+                             <div className="px-4 py-2 border-b border-zinc-200 dark:border-zinc-700">
+                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{username}</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager</p>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    handleLogout();
+                                    setIsProfileOpen(false);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>

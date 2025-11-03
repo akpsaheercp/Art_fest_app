@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { TABS, SIDEBAR_GROUPS, INITIALIZATION_SUB_PAGE_ICONS } from '../constants';
-import { Sun, Moon, X, Search, UserCircle, LayoutDashboard, UserPlus, Calendar, Edit3, BarChart2, FileText } from 'lucide-react';
+import { Sun, Moon, X, Search, UserCircle, LayoutDashboard, UserPlus, Calendar, Edit3, BarChart2, FileText, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -10,6 +10,7 @@ interface SidebarProps {
   toggleTheme: () => void;
   isOpen: boolean;
   onClose: () => void;
+  handleLogout: () => void;
 }
 
 const iconMap: { [key: string]: React.ElementType } = {
@@ -26,8 +27,9 @@ const iconMap: { [key: string]: React.ElementType } = {
     [TABS.REPORTS]: FileText,
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggleTheme, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggleTheme, isOpen, onClose, handleLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const username = sessionStorage.getItem('username') || 'Admin';
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
@@ -65,10 +67,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
   return (
     <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 shadow-lg flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-        <div className="flex items-center gap-3" title="Admin User profile">
+        <div className="flex items-center gap-3" title={`${username}'s profile`}>
           <UserCircle className="h-10 w-10 text-zinc-500 dark:text-zinc-400" />
           <div>
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Admin User</p>
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{username}</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager</p>
           </div>
         </div>
@@ -112,18 +114,30 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
         })}
       </nav>
 
-      <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-         <div className="text-xs text-zinc-400">
-            © 2024 Art Fest Manager
-        </div>
+      <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
         <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-          aria-label="Toggle theme"
-          title="Toggle light/dark theme"
+          onClick={handleLogout}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ease-in-out text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 mb-2"
+          title="Logout"
         >
-          {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          <div className="flex items-center">
+            <LogOut className="mr-3 h-5 w-5" />
+            <span>Logout</span>
+          </div>
         </button>
+        <div className="flex justify-between items-center">
+           <div className="text-xs text-zinc-400">
+              © 2024 Art Fest Manager
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            aria-label="Toggle theme"
+            title="Toggle light/dark theme"
+          >
+            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
     </aside>
   );
