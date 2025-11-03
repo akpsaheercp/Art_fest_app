@@ -2,21 +2,27 @@ import React, { useState, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
-import { Participant } from '../types';
-import { Plus, X, ArrowUpDown, Trash2, Upload, FileDown, CheckCircle, XCircle } from 'lucide-react';
+import { Participant, User, UserRole } from '../types';
+import { Plus, X, ArrowUpDown, Trash2, Upload, FileDown, CheckCircle, XCircle, FileText } from 'lucide-react';
+import ReportViewer from '../components/ReportViewer';
 
 // --- Import CSV Modal Component ---
 interface ImportCSVModalProps {
     isOpen: boolean;
     onClose: () => void;
+    currentUser: User | null;
 }
 
-const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose }) => {
+const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose, currentUser }) => {
     const { state, dispatch } = useAppState();
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [status, setStatus] = useState<{ validParticipants: Participant[]; errors: string[] }>({ validParticipants: [], errors: [] });
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
+    const teamLeaderTeamName = isTeamLeader ? state.teams.find(t => t.id === currentUser.teamId)?.name : null;
+
 
     const resetState = () => {
         setFile(null);
@@ -90,6 +96,10 @@ const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose }) => {
                 errors.push(`Row ${i + 1}: Team "${teamName}" not found.`);
                 continue;
             }
+            if (isTeamLeader && team.id !== currentUser.teamId) {
+                errors.push(`Row ${i + 1}: You can only import participants for your team ("${teamLeaderTeamName}"). This row specifies "${teamName}".`);
+                continue;
+            }
             const category = state.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
             if (!category) {
                 errors.push(`Row ${i + 1}: Category "${categoryName}" not found.`);
@@ -129,6 +139,11 @@ const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose }) => {
                             <li>Team and Category names must match existing entries in the system.</li>
                             <li>Chest numbers must be unique.</li>
                         </ul>
+                        {isTeamLeader && teamLeaderTeamName && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md">
+                                Note: As a Team Leader, you can only import participants for your team, "{teamLeaderTeamName}". Ensure the <code className="bg-zinc-100 dark:bg-zinc-800 p-1 rounded text-xs">teamName</code> column matches.
+                            </p>
+                        )}
                         <button onClick={handleDownloadTemplate} className="mt-2 flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
                             <FileDown className="h-4 w-4" /> Download Template
                         </button>
@@ -187,13 +202,17 @@ interface ParticipantFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     editingParticipant: Participant | null;
+    currentUser: User | null;
 }
 
-const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onClose, editingParticipant }) => {
+const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onClose, editingParticipant, currentUser }) => {
     const { state, dispatch } = useAppState();
     
+    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
+    const initialTeamId = isTeamLeader ? currentUser.teamId : '';
+
     const initialFormState: Omit<Participant, 'id'> = {
-        chestNumber: '', name: '', teamId: '', categoryId: '', itemIds: []
+        chestNumber: '', name: '', teamId: initialTeamId || '', categoryId: '', itemIds: []
     };
 
     const [formData, setFormData] = useState<Omit<Participant, 'id'>>(initialFormState);
@@ -210,9 +229,9 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
         } else {
             setFormData(initialFormState);
         }
-    }, [editingParticipant, isOpen]);
+    }, [editingParticipant, isOpen, currentUser]);
     
-    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
+    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed";
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -280,7 +299,7 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Team</label>
-                            <select name="teamId" value={formData.teamId} onChange={handleInputChange} className={inputClasses} required>
+                            <select name="teamId" value={formData.teamId} onChange={handleInputChange} className={inputClasses} required disabled={isTeamLeader}>
                                 <option value="">Select Team</option>
                                 {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
@@ -340,7 +359,7 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
 };
 
 
-const DataEntryPage: React.FC = () => {
+const DataEntryPage: React.FC<{ currentUser: User | null }> = ({ currentUser }) => {
     const { state, dispatch } = useAppState();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -348,10 +367,16 @@ const DataEntryPage: React.FC = () => {
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [filters, setFilters] = useState({ searchTerm: '', teamId: '', categoryId: '' });
     const [sort, setSort] = useState<{ key: keyof Participant; dir: 'asc' | 'desc' }>({ key: 'chestNumber', dir: 'asc' });
+    const [idCardContent, setIdCardContent] = useState<{ title: string; content: string } | null>(null);
     
+    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
+
     const filteredAndSortedParticipants = useMemo(() => {
         return state.participants
             .filter(p => {
+                const teamLeaderMatch = isTeamLeader ? p.teamId === currentUser.teamId : true;
+                if (!teamLeaderMatch) return false;
+
                 const searchMatch = p.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) || p.chestNumber.includes(filters.searchTerm);
                 const teamMatch = filters.teamId ? p.teamId === filters.teamId : true;
                 const categoryMatch = filters.categoryId ? p.categoryId === filters.categoryId : true;
@@ -364,7 +389,7 @@ const DataEntryPage: React.FC = () => {
                 if (valA > valB) return sort.dir === 'asc' ? 1 : -1;
                 return 0;
             });
-    }, [state.participants, filters, sort]);
+    }, [state.participants, filters, sort, currentUser, isTeamLeader]);
 
     const handleSort = (key: keyof Participant) => {
         setSort(prev => ({
@@ -407,6 +432,90 @@ const DataEntryPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const generateIdCardsHtml = (): string => {
+        const selectedParticipants = state.participants.filter(p => selected.has(p.id));
+
+        const styles = `
+        <style>
+            .id-card-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            .id-card {
+                border: 1px solid #ccc;
+                border-radius: 12px;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                box-sizing: border-box;
+                background: #fff;
+                page-break-inside: avoid;
+            }
+            .card-header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px; }
+            .fest-name { font-weight: bold; font-size: 16px; color: #4f46e5; }
+            .card-body { text-align: center; }
+            .participant-photo { width: 70px; height: 70px; border-radius: 50%; background: #e0e7ff; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; }
+            .participant-photo svg { width: 40px; height: 40px; color: #4f46e5; }
+            .participant-name { font-weight: bold; font-size: 18px; margin-bottom: 4px; }
+            .participant-details { font-size: 12px; color: #555; line-height: 1.4; }
+            .card-footer { margin-top: auto; }
+            .events-table { width: 100%; font-size: 10px; border-collapse: collapse; margin-top: 12px;}
+            .events-table th, .events-table td { border: 1px solid #ddd; padding: 4px; text-align: left; }
+            .events-table th { background: #f2f2f2; font-weight: 600; }
+        </style>
+        `;
+        
+        const userIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
+        let cardsHtml = '';
+        selectedParticipants.forEach((p, index) => {
+            const team = state.teams.find(t => t.id === p.teamId);
+            const category = state.categories.find(c => c.id === p.categoryId);
+
+            let eventsHtml = '<table class="events-table"><thead><tr><th>Item</th><th>Date/Time</th><th>Stage</th></tr></thead><tbody>';
+            p.itemIds.forEach(itemId => {
+                const item = state.items.find(i => i.id === itemId);
+                const schedule = state.schedule.find(s => s.itemId === itemId && s.categoryId === p.categoryId);
+                eventsHtml += `
+                    <tr>
+                        <td>${item?.name || 'N/A'}</td>
+                        <td>${schedule ? `${schedule.date}, ${schedule.time}` : 'N/A'}</td>
+                        <td>${schedule?.stage || 'N/A'}</td>
+                    </tr>
+                `;
+            });
+            eventsHtml += '</tbody></table>';
+
+            cardsHtml += `
+            <div class="id-card">
+                <div class="card-header">
+                    <div class="fest-name">${state.settings.heading}</div>
+                </div>
+                <div class="card-body">
+                    <div class="participant-photo">${userIconSvg}</div>
+                    <div class="participant-name">${p.name}</div>
+                    <div class="participant-details">
+                        <strong>Chest No:</strong> ${p.chestNumber} <br />
+                        <strong>Team:</strong> ${team?.name || 'N/A'} <br />
+                        <strong>Category:</strong> ${category?.name || 'N/A'}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    ${p.itemIds.length > 0 ? eventsHtml : ''}
+                </div>
+            </div>
+            `;
+        });
+
+        return `${styles}<div class="id-card-container">${cardsHtml}</div>`;
+    };
+
+    const handlePrintIdCards = () => {
+        const html = generateIdCardsHtml();
+        setIdCardContent({ title: 'Participant ID Cards', content: html });
+    };
+
     const inputClasses = "block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
     
     const renderSortIcon = (key: keyof Participant) => (
@@ -432,10 +541,12 @@ const DataEntryPage: React.FC = () => {
             <Card title="Participants List" className="lg:col-span-2">
                 <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border-b dark:border-zinc-700">
                     <input type="text" placeholder="Search name or chest no..." value={filters.searchTerm} onChange={e => setFilters({...filters, searchTerm: e.target.value})} className={inputClasses}/>
-                    <select value={filters.teamId} onChange={e => setFilters({...filters, teamId: e.target.value})} className={inputClasses}>
-                        <option value="">All Teams</option>
-                        {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
+                    {!isTeamLeader && (
+                        <select value={filters.teamId} onChange={e => setFilters({...filters, teamId: e.target.value})} className={inputClasses}>
+                            <option value="">All Teams</option>
+                            {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    )}
                     <select value={filters.categoryId} onChange={e => setFilters({...filters, categoryId: e.target.value})} className={inputClasses}>
                         <option value="">All Categories</option>
                         {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -443,12 +554,18 @@ const DataEntryPage: React.FC = () => {
                 </div>
 
                 {selected.size > 0 && (
-                    <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-md flex justify-between items-center">
+                    <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-md flex justify-between items-center flex-wrap gap-2">
                         <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{selected.size} participant(s) selected.</p>
-                        <button onClick={handleDeleteSelected} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 shadow-sm transition-colors">
-                            <Trash2 className="h-4 w-4" />
-                            <span>Delete Selected</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrintIdCards} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-500 text-white rounded-md hover:bg-sky-600 shadow-sm transition-colors">
+                                <FileText className="h-4 w-4" />
+                                <span>Print ID Cards</span>
+                            </button>
+                            <button onClick={handleDeleteSelected} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 shadow-sm transition-colors">
+                                <Trash2 className="h-4 w-4" />
+                                <span>Delete Selected</span>
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -488,10 +605,19 @@ const DataEntryPage: React.FC = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 editingParticipant={editingParticipant}
+                currentUser={currentUser}
             />
              <ImportCSVModal
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
+                currentUser={currentUser}
+            />
+            <ReportViewer
+                isOpen={!!idCardContent}
+                onClose={() => setIdCardContent(null)}
+                title={idCardContent?.title || ''}
+                content={idCardContent?.content || ''}
+                isSearchable={false}
             />
         </div>
     );

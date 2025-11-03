@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { TABS, SIDEBAR_GROUPS, INITIALIZATION_SUB_PAGE_ICONS } from '../constants';
-import { Sun, Moon, X, Search, UserCircle, LayoutDashboard, UserPlus, Calendar, Edit3, BarChart2, FileText, LogOut } from 'lucide-react';
+import { User } from '../types';
+import { Sun, Moon, X, Search, UserCircle, LayoutDashboard, UserPlus, Calendar, Edit3, BarChart2, FileText, LogOut, Scale } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -11,6 +11,8 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   handleLogout: () => void;
+  currentUser: User;
+  hasPermission: (tab: string) => boolean;
 }
 
 const iconMap: { [key: string]: React.ElementType } = {
@@ -20,17 +22,18 @@ const iconMap: { [key: string]: React.ElementType } = {
     [TABS.ITEMS]: INITIALIZATION_SUB_PAGE_ICONS['Items'],
     [TABS.GRADE_POINTS]: INITIALIZATION_SUB_PAGE_ICONS['Grade Points'],
     [TABS.CODE_LETTERS]: INITIALIZATION_SUB_PAGE_ICONS['Code Letters'],
+    [TABS.JUDGES_MANAGEMENT]: INITIALIZATION_SUB_PAGE_ICONS['Judges & Assignments'],
     [TABS.DATA_ENTRY]: UserPlus,
     [TABS.SCHEDULE]: Calendar,
+    [TABS.JUDGEMENT]: Scale,
     [TABS.TABULATION]: Edit3,
     [TABS.POINTS]: BarChart2,
     [TABS.REPORTS]: FileText,
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggleTheme, isOpen, onClose, handleLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggleTheme, isOpen, onClose, handleLogout, currentUser, hasPermission }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const username = sessionStorage.getItem('username') || 'Admin';
-
+  
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
     onClose(); // Close sidebar on mobile after navigation
@@ -39,6 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
   const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
   const renderNavItem = (tab: string) => {
+    if (!hasPermission(tab)) return null;
+
     const Icon = iconMap[tab];
     const isMatch = tab.toLowerCase().includes(lowerCaseSearchTerm);
     
@@ -67,11 +72,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
   return (
     <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 shadow-lg flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-        <div className="flex items-center gap-3" title={`${username}'s profile`}>
+        <div className="flex items-center gap-3" title={`${currentUser.username}'s profile`}>
           <UserCircle className="h-10 w-10 text-zinc-500 dark:text-zinc-400" />
           <div>
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{username}</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager</p>
+            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{currentUser.username}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{currentUser.role}</p>
           </div>
         </div>
         <button 
@@ -99,15 +104,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
 
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {SIDEBAR_GROUPS.map(group => {
-            const hasVisibleItems = group.tabs.some(tab => tab.toLowerCase().includes(lowerCaseSearchTerm));
+            const visibleTabsInGroup = group.tabs.filter(tab => hasPermission(tab) && tab.toLowerCase().includes(lowerCaseSearchTerm));
 
-            if (!hasVisibleItems) return null;
+            if (visibleTabsInGroup.length === 0) return null;
 
             return (
                 <div key={group.title}>
                     <div className="px-3 pt-4 pb-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{group.title}</div>
                     <div className="space-y-1">
-                        {group.tabs.map(tab => renderNavItem(tab))}
+                        {visibleTabsInGroup.map(tab => renderNavItem(tab))}
                     </div>
                 </div>
             );

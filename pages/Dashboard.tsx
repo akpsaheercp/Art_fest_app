@@ -127,37 +127,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
               </Card>
           </div>
           
-           <div className="lg:col-span-5 grid grid-cols-1 lg:grid-cols-5 gap-6">
-             <div className="lg:col-span-3">
-                <Card title="Quick Actions">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <button onClick={() => setActiveTab(TABS.GENERAL_SETTINGS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <Settings className="h-8 w-8 text-indigo-500 mb-2" />
-                            <span className="text-sm font-medium">Event Setup</span>
-                        </button>
-                        <button onClick={() => setActiveTab(TABS.DATA_ENTRY)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <UserPlus className="h-8 w-8 text-indigo-500 mb-2" />
-                            <span className="text-sm font-medium">Add Participant</span>
-                        </button>
-                        <button onClick={() => setActiveTab(TABS.TABULATION)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <Edit3 className="h-8 w-8 text-indigo-500 mb-2" />
-                            <span className="text-sm font-medium">Enter Marks</span>
-                        </button>
-                        <button onClick={() => setActiveTab(TABS.POINTS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <BarChart2 className="h-8 w-8 text-indigo-500 mb-2" />
-                            <span className="text-sm font-medium">View Points</span>
-                        </button>
-                    </div>
-                </Card>
-             </div>
-             <div className="lg:col-span-2">
-                <Card title="About Art Fest Manager">
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                        This is a comprehensive tool to manage cultural and artistic festivals. 
-                        From initial setup to participant registration, AI-powered scheduling, tabulation, and reporting, this app covers every aspect of festival organization.
-                    </p>
-                </Card>
-              </div>
+           <div className="lg:col-span-5">
+             <Card title="About Art Fest Manager">
+                 <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                     This is a comprehensive tool to manage cultural and artistic festivals. 
+                     From initial setup to participant registration, AI-powered scheduling, tabulation, and reporting, this app covers every aspect of festival organization.
+                 </p>
+             </Card>
            </div>
       </div>
     </div>

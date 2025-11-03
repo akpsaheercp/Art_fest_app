@@ -1,5 +1,6 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch } from 'react';
-import { AppState, Action, ItemType, Result, TabulationEntry, ResultStatus } from '../types';
+import { AppState, Action, ItemType, Result, TabulationEntry, ResultStatus, UserRole } from '../types';
+import { DEFAULT_PAGE_PERMISSIONS } from '../constants';
 
 const initialState: AppState = {
   settings: {
@@ -16,7 +17,6 @@ const initialState: AppState = {
   teams: [
     { id: 'team1', name: 'Red House' },
     { id: 'team2', name: 'Blue House' },
-    { id: 'team3', name: 'Green House' },
   ],
   items: [
     { id: 'item1', name: 'Solo Song', categoryId: 'cat1', type: ItemType.SINGLE, points: { first: 5, second: 3, third: 1 }, maxParticipants: 1 },
@@ -40,8 +40,19 @@ const initialState: AppState = {
     { id: 'p2', chestNumber: '201', name: 'Jane Smith', teamId: 'team2', categoryId: 'cat2', itemIds: ['item2'] },
   ],
   schedule: [],
+  judgeAssignments: [],
   tabulation: [],
   results: [],
+  judges: [],
+  users: [
+    { id: 'user_manager_default', username: 'Amazio', password: 'Admin@123', role: UserRole.MANAGER },
+  ],
+  permissions: DEFAULT_PAGE_PERMISSIONS,
+};
+
+const calculateFinalMark = (marks: { [judgeId: string]: number | null }): number | null => {
+    const validMarks = Object.values(marks || {}).filter(m => m !== null) as number[];
+    return validMarks.length > 0 ? validMarks.reduce((a, b) => a + b, 0) / validMarks.length : null;
 };
 
 const appReducer = (state: AppState, action: Action): AppState => {
@@ -57,9 +68,24 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'REORDER_CATEGORIES':
         return { ...state, categories: action.payload };
     case 'DELETE_CATEGORY':
-      return { ...state, categories: state.categories.filter(c => c.id !== action.payload) };
-    case 'DELETE_MULTIPLE_CATEGORIES':
-      return { ...state, categories: state.categories.filter(c => !action.payload.includes(c.id)) };
+    case 'DELETE_MULTIPLE_CATEGORIES': {
+        const categoryIdsToDelete = new Set(
+            action.type === 'DELETE_CATEGORY' ? [action.payload] : action.payload
+        );
+
+        const itemsToDelete = new Set(state.items.filter(i => categoryIdsToDelete.has(i.categoryId)).map(i => i.id));
+        const participantsToDelete = new Set(state.participants.filter(p => categoryIdsToDelete.has(p.categoryId)).map(p => p.id));
+
+        const newCategories = state.categories.filter(c => !categoryIdsToDelete.has(c.id));
+        const newItems = state.items.filter(i => !categoryIdsToDelete.has(i.categoryId));
+        const newParticipants = state.participants.filter(p => !categoryIdsToDelete.has(p.categoryId));
+        const newSchedule = state.schedule.filter(s => !categoryIdsToDelete.has(s.categoryId) && !itemsToDelete.has(s.itemId));
+        const newJudgeAssignments = state.judgeAssignments.filter(j => !categoryIdsToDelete.has(j.categoryId) && !itemsToDelete.has(j.itemId));
+        const newTabulation = state.tabulation.filter(t => !categoryIdsToDelete.has(t.categoryId) && !participantsToDelete.has(t.participantId));
+        const newResults = state.results.filter(r => !categoryIdsToDelete.has(r.categoryId));
+
+        return { ...state, categories: newCategories, items: newItems, participants: newParticipants, schedule: newSchedule, judgeAssignments: newJudgeAssignments, tabulation: newTabulation, results: newResults };
+    }
     case 'ADD_TEAM':
       return { ...state, teams: [...state.teams, action.payload] };
     case 'UPDATE_TEAM':
@@ -67,9 +93,25 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'REORDER_TEAMS':
         return { ...state, teams: action.payload };
     case 'DELETE_TEAM':
-      return { ...state, teams: state.teams.filter(t => t.id !== action.payload) };
-    case 'DELETE_MULTIPLE_TEAMS':
-      return { ...state, teams: state.teams.filter(t => !action.payload.includes(t.id)) };
+    case 'DELETE_MULTIPLE_TEAMS': {
+        const teamIdsToDelete = new Set(
+            action.type === 'DELETE_TEAM' ? [action.payload] : action.payload
+        );
+        
+        const participantsToDelete = state.participants.filter(p => teamIdsToDelete.has(p.teamId)).map(p => p.id);
+        const participantIdsToDelete = new Set(participantsToDelete);
+        
+        const newTeams = state.teams.filter(t => !teamIdsToDelete.has(t.id));
+        const newParticipants = state.participants.filter(p => !teamIdsToDelete.has(p.teamId));
+        const newUsers = state.users.map(u => u.teamId && teamIdsToDelete.has(u.teamId) ? { ...u, teamId: undefined } : u);
+        const newTabulation = state.tabulation.filter(t => !participantIdsToDelete.has(t.participantId));
+        const newResults = state.results.map(r => ({
+            ...r,
+            winners: r.winners.filter(w => !participantIdsToDelete.has(w.participantId)),
+        }));
+
+        return { ...state, teams: newTeams, participants: newParticipants, users: newUsers, tabulation: newTabulation, results: newResults };
+    }
     case 'ADD_ITEM':
         return { ...state, items: [...state.items, action.payload] };
     case 'ADD_MULTIPLE_ITEMS':
@@ -77,9 +119,23 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'UPDATE_ITEM':
         return { ...state, items: state.items.map(i => i.id === action.payload.id ? action.payload : i) };
     case 'DELETE_ITEM':
-        return { ...state, items: state.items.filter(i => i.id !== action.payload) };
-    case 'DELETE_MULTIPLE_ITEMS':
-        return { ...state, items: state.items.filter(i => !action.payload.includes(i.id)) };
+    case 'DELETE_MULTIPLE_ITEMS': {
+        const itemIdsToDelete = new Set(
+            action.type === 'DELETE_ITEM' ? [action.payload] : action.payload
+        );
+        
+        const newItems = state.items.filter(i => !itemIdsToDelete.has(i.id));
+        const newParticipants = state.participants.map(p => ({
+            ...p,
+            itemIds: p.itemIds.filter(id => !itemIdsToDelete.has(id))
+        }));
+        const newSchedule = state.schedule.filter(s => !itemIdsToDelete.has(s.itemId));
+        const newJudgeAssignments = state.judgeAssignments.filter(j => !itemIdsToDelete.has(j.itemId));
+        const newTabulation = state.tabulation.filter(t => !itemIdsToDelete.has(t.itemId));
+        const newResults = state.results.filter(r => !itemIdsToDelete.has(r.itemId));
+
+        return { ...state, items: newItems, participants: newParticipants, schedule: newSchedule, judgeAssignments: newJudgeAssignments, tabulation: newTabulation, results: newResults };
+    }
     case 'ADD_GRADE':
         return {
             ...state,
@@ -111,19 +167,80 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'UPDATE_PARTICIPANT':
         return { ...state, participants: state.participants.map(p => p.id === action.payload.id ? action.payload : p) };
     case 'DELETE_PARTICIPANT':
-        return { ...state, participants: state.participants.filter(p => p.id !== action.payload) };
-    case 'DELETE_MULTIPLE_PARTICIPANTS':
-        return { ...state, participants: state.participants.filter(p => !action.payload.includes(p.id)) };
+    case 'DELETE_MULTIPLE_PARTICIPANTS': {
+        const participantIdsToDelete = new Set(
+             action.type === 'DELETE_PARTICIPANT' ? [action.payload] : action.payload
+        );
+
+        const newParticipants = state.participants.filter(p => !participantIdsToDelete.has(p.id));
+        const newTabulation = state.tabulation.filter(t => !participantIdsToDelete.has(t.participantId));
+        const newResults = state.results.map(r => ({
+            ...r,
+            winners: r.winners.filter(w => !participantIdsToDelete.has(w.participantId))
+        }));
+
+        return { ...state, participants: newParticipants, tabulation: newTabulation, results: newResults };
+    }
+    case 'ADD_JUDGE':
+        return { ...state, judges: [...state.judges, action.payload] };
+    case 'UPDATE_JUDGE':
+        return { ...state, judges: state.judges.map(j => j.id === action.payload.id ? action.payload : j) };
+    case 'REORDER_JUDGES':
+        return { ...state, judges: action.payload };
+    case 'DELETE_JUDGE':
+    case 'DELETE_MULTIPLE_JUDGES': {
+        const judgeIdsToDelete = new Set(
+            action.type === 'DELETE_JUDGE' ? [action.payload] : action.payload
+        );
+        const newJudges = state.judges.filter(j => !judgeIdsToDelete.has(j.id));
+        
+        const newJudgeAssignments = state.judgeAssignments.map(a => ({
+            ...a,
+            judgeIds: a.judgeIds.filter(id => !judgeIdsToDelete.has(id))
+        }));
+
+        const newTabulation = state.tabulation.map(t => {
+            const newMarks = { ...t.marks };
+            let marksChanged = false;
+            judgeIdsToDelete.forEach(judgeId => {
+                if (newMarks[judgeId] !== undefined) {
+                    delete newMarks[judgeId];
+                    marksChanged = true;
+                }
+            });
+            if (marksChanged) {
+                return { ...t, marks: newMarks, finalMark: calculateFinalMark(newMarks) };
+            }
+            return t;
+        });
+
+        return { ...state, judges: newJudges, judgeAssignments: newJudgeAssignments, tabulation: newTabulation };
+    }
     case 'SET_SCHEDULE':
         return { ...state, schedule: action.payload };
+    case 'UPDATE_ITEM_JUDGES': {
+        const { itemId, categoryId, judgeIds } = action.payload;
+        const id = `${itemId}-${categoryId}`;
+        const existingIndex = state.judgeAssignments.findIndex(a => a.id === id);
+        let newAssignments = [...state.judgeAssignments];
+        if (existingIndex > -1) {
+            newAssignments[existingIndex] = { ...newAssignments[existingIndex], judgeIds };
+        } else {
+            newAssignments.push({ id, itemId, categoryId, judgeIds });
+        }
+        return { ...state, judgeAssignments: newAssignments };
+    }
     case 'UPDATE_TABULATION_ENTRY': {
+        const newEntry = action.payload;
+        newEntry.finalMark = calculateFinalMark(newEntry.marks);
+
         const existingIndex = state.tabulation.findIndex(t => t.id === action.payload.id);
         if (existingIndex > -1) {
             const newTabulation = [...state.tabulation];
-            newTabulation[existingIndex] = action.payload;
+            newTabulation[existingIndex] = newEntry;
             return { ...state, tabulation: newTabulation };
         }
-        return { ...state, tabulation: [...state.tabulation, action.payload] };
+        return { ...state, tabulation: [...state.tabulation, newEntry] };
     }
     case 'UPDATE_RESULT_STATUS': {
         const { itemId, categoryId, status } = action.payload;
@@ -152,16 +269,16 @@ const appReducer = (state: AppState, action: Action): AppState => {
         const item = state.items.find(i => i.id === itemId);
         if (!item) return state;
 
-        const relevantEntries = state.tabulation.filter(t => t.itemId === itemId && t.categoryId === categoryId && t.mark !== null);
-        const sortedEntries = [...relevantEntries].sort((a, b) => (b.mark ?? 0) - (a.mark ?? 0));
+        const relevantEntries = state.tabulation.filter(t => t.itemId === itemId && t.categoryId === categoryId && t.finalMark !== null);
+        const sortedEntries = [...relevantEntries].sort((a, b) => (b.finalMark ?? 0) - (a.finalMark ?? 0));
         
         let rank = 0;
         let lastMark = -1;
         const winners = sortedEntries.map((entry, index) => {
-            if (entry.mark !== lastMark) {
+            if (entry.finalMark !== lastMark) {
                 rank = index + 1;
             }
-            lastMark = entry.mark!;
+            lastMark = entry.finalMark!;
             return { ...entry, position: rank };
         }).filter(e => e.position <= 3);
 
@@ -178,7 +295,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
                 return {
                     ...t,
                     position: winnerInfo ? winnerInfo.position : null,
-                    gradeId: getGradeId(t.mark)
+                    gradeId: getGradeId(t.finalMark)
                 };
             }
             return t;
@@ -191,8 +308,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
             winners: winners.map(w => ({
                 participantId: w.participantId,
                 position: w.position,
-                mark: w.mark,
-                gradeId: getGradeId(w.mark)
+                mark: w.finalMark,
+                gradeId: getGradeId(w.finalMark)
             }))
         };
 
@@ -206,6 +323,20 @@ const appReducer = (state: AppState, action: Action): AppState => {
         
         return { ...state, tabulation: updatedTabulation, results: newResults };
     }
+     case 'ADD_USER':
+        return { ...state, users: [...state.users, action.payload] };
+    case 'UPDATE_USER':
+        return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
+    case 'DELETE_USER':
+        return { ...state, users: state.users.filter(u => u.id !== action.payload) };
+    case 'UPDATE_PERMISSIONS':
+        return {
+            ...state,
+            permissions: {
+                ...state.permissions,
+                [action.payload.role]: action.payload.pages,
+            },
+        };
     default:
       return state;
   }
@@ -224,6 +355,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (savedState) {
       try {
         let parsedState = JSON.parse(savedState);
+        
         // Migration logic for results status
         if (parsedState.results) {
             parsedState.results = parsedState.results.map((r: any) => {
@@ -235,6 +367,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 return r;
             });
         }
+
+        // Migration logic for users
+        if (!parsedState.users || parsedState.users.length === 0) {
+            parsedState.users = initialState.users;
+        }
+        
+        // Migration logic for permissions
+        if (!parsedState.permissions) {
+            parsedState.permissions = DEFAULT_PAGE_PERMISSIONS;
+        }
+
         dispatch({ type: 'SET_STATE', payload: parsedState });
       } catch (error) {
         console.error("Failed to parse state from localStorage", error);
@@ -244,7 +387,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('artFestState', JSON.stringify(state));
+    // Avoid storing passwords in localStorage in a real app
+    const stateToSave = { ...state };
+    stateToSave.users = stateToSave.users.map(({ password, ...user }) => user);
+    localStorage.setItem('artFestState', JSON.stringify(stateToSave));
   }, [state]);
 
   return (

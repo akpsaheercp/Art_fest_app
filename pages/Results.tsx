@@ -86,7 +86,8 @@ const ResultsPage: React.FC = () => {
                                         <tr key={entry.id}>
                                             <td className={`${tdClasses} font-medium text-zinc-900 dark:text-zinc-100`}>{getParticipantName(entry.participantId)}</td>
                                             <td className={tdClasses}>{getTeamName(entry.participantId)}</td>
-                                            <td className={tdClasses}>{entry.mark ?? 'N/A'}</td>
+                                            {/* FIX: Corrected property access from `entry.mark` to `entry.finalMark` as `mark` does not exist on `TabulationEntry`. */}
+                                            <td className={tdClasses}>{entry.finalMark ?? 'N/A'}</td>
                                         </tr>
                                     ))}
                                 </tbody>

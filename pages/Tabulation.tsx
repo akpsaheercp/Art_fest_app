@@ -1,104 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import ReactDOM from 'react-dom';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
-import { TabulationEntry, ResultStatus, ItemType } from '../types';
+import { TabulationEntry, ResultStatus, ItemType, Judge } from '../types';
 import { Trophy, ChevronDown, Printer, X } from 'lucide-react';
-
-
-// --- ReportViewer Modal Component for Printing Results ---
-interface ReportViewerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  content: string;
-}
-
-const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, content }) => {
-  const { state } = useAppState();
-  const reportContentRef = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
-
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert('Could not open print window. Please disable pop-up blockers.');
-        return;
-    }
-    const contentToPrint = reportContentRef.current?.innerHTML || content;
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${state.settings.heading} - ${title}</title>
-          <style> 
-            body { font-family: sans-serif; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } 
-            thead { background-color: #f2f2f2; } 
-            h1, h2, h3 { text-align: center; }
-            .page-break-before-always { page-break-before: always; }
-            @media print {
-              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="p-6">
-            <div class="text-center mb-8 border-b pb-4">
-              <h1>${state.settings.heading}</h1>
-              <p>${state.settings.description}</p>
-            </div>
-            <h2>${title}</h2>
-            <div>${contentToPrint}</div>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-    }, 250);
-  };
-
-  if (!isOpen) return null;
-
-  return ReactDOM.createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4" onClick={onClose}>
-        <div className="relative flex flex-col w-full h-full max-w-4xl max-h-[90vh] bg-white dark:bg-zinc-900 rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-            <h2 className="text-xl font-semibold">{title}</h2>
-            <div className="flex items-center gap-2">
-              <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600">
-                <Printer className="h-4 w-4" /> Print
-              </button>
-              <button onClick={onClose} className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Close">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-          </div>
-          <div className="flex-grow overflow-y-auto p-6" ref={reportContentRef}>
-            <div dangerouslySetInnerHTML={{ __html: content }} />
-          </div>
-        </div>
-      </div>,
-    document.body
-  );
-};
+import ReportViewer from '../components/ReportViewer';
 
 
 const TabulationPage: React.FC = () => {
@@ -108,7 +13,6 @@ const TabulationPage: React.FC = () => {
     const [isConfirmingDeclare, setIsConfirmingDeclare] = useState(false);
     const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // New state for results section
     const [expandedResult, setExpandedResult] = useState<string | null>(null);
     const [resultFilter, setResultFilter] = useState('');
     const [reportContent, setReportContent] = useState<{ title: string; content: string } | null>(null);
@@ -121,6 +25,13 @@ const TabulationPage: React.FC = () => {
         if (!selectedItemId) return [];
         return state.participants.filter(p => p.itemIds.includes(selectedItemId));
     }, [selectedItemId, state.participants]);
+
+    const assignedJudges = useMemo(() => {
+        if (!selectedItemId || !selectedCategoryId) return [];
+        const assignment = state.judgeAssignments.find(a => a.itemId === selectedItemId && a.categoryId === selectedCategoryId);
+        if (!assignment) return [];
+        return assignment.judgeIds.map(id => state.judges.find(j => j.id === id)).filter(Boolean) as Judge[];
+    }, [selectedItemId, selectedCategoryId, state.judgeAssignments, state.judges]);
     
     const resultForItem = useMemo(() => {
         return state.results.find(r => r.itemId === selectedItemId && r.categoryId === selectedCategoryId);
@@ -145,18 +56,24 @@ const TabulationPage: React.FC = () => {
                 if (!state.tabulation.find(t => t.id === entryId)) {
                     dispatch({ type: 'UPDATE_TABULATION_ENTRY', payload: {
                         id: entryId, itemId: selectedItemId, categoryId: selectedCategoryId, participantId: p.id,
-                        codeLetter: state.codeLetters[index % state.codeLetters.length].code, mark: null, position: null, gradeId: null,
+                        codeLetter: state.codeLetters[index % state.codeLetters.length].code,
+                        marks: {}, finalMark: null, position: null, gradeId: null,
                     }});
                 }
             });
         }
     }, [participantsInItem, selectedItemId, selectedCategoryId, state.codeLetters, state.tabulation, dispatch]);
 
-    const handleTabulationChange = (participantId: string, field: 'codeLetter' | 'mark', value: string | number) => {
+    const handleTabulationChange = (participantId: string, field: 'codeLetter' | 'mark', value: string | number, judgeId?: string) => {
         const entryId = `${selectedItemId}-${participantId}`;
         const existingEntry = state.tabulation.find(t => t.id === entryId);
         if (existingEntry) {
-            dispatch({ type: 'UPDATE_TABULATION_ENTRY', payload: { ...existingEntry, [field]: value } });
+            if (field === 'mark' && judgeId) {
+                const newMarks = { ...existingEntry.marks, [judgeId]: value === '' ? null : +value };
+                dispatch({ type: 'UPDATE_TABULATION_ENTRY', payload: { ...existingEntry, marks: newMarks } });
+            } else if (field === 'codeLetter') {
+                dispatch({ type: 'UPDATE_TABULATION_ENTRY', payload: { ...existingEntry, codeLetter: String(value) } });
+            }
         }
     };
 
@@ -213,15 +130,15 @@ const TabulationPage: React.FC = () => {
             const category = state.categories.find(c => c.id === result.categoryId)!;
             const participants = state.tabulation
                 .filter(t => t.itemId === result.itemId && t.categoryId === result.categoryId)
-                .sort((a,b) => (b.mark ?? -1) - (a.mark ?? -1));
+                .sort((a,b) => (b.finalMark ?? -1) - (a.finalMark ?? -1));
 
             html += `<div class="${index > 0 ? 'page-break' : ''}"><h3>${item.name} (${category.name})</h3><table><thead><tr><th>Rank</th><th>Chest No</th><th>Name</th><th>Team</th><th>Mark</th><th>Grade</th><th>Position</th></tr></thead><tbody>`;
             let rank = 0, lastMark = -1;
             participants.forEach((p, pIndex) => {
-                if(p.mark !== lastMark) rank = pIndex + 1;
-                lastMark = p.mark!;
+                if(p.finalMark !== lastMark) rank = pIndex + 1;
+                lastMark = p.finalMark!;
                 const participant = getParticipant(p.participantId)!;
-                html += `<tr><td>${rank}</td><td>${participant.chestNumber}</td><td>${participant.name}</td><td>${getTeamName(p.participantId)}</td><td>${p.mark}</td><td>${getGradeName(p.gradeId, item.type.toLowerCase() as 'single'|'group')}</td><td>${p.position || '-'}</td></tr>`;
+                html += `<tr><td>${rank}</td><td>${participant.chestNumber}</td><td>${participant.name}</td><td>${getTeamName(p.participantId)}</td><td>${p.finalMark?.toFixed(2)}</td><td>${getGradeName(p.gradeId, item.type.toLowerCase() as 'single'|'group')}</td><td>${p.position || '-'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
         });
@@ -260,7 +177,10 @@ const TabulationPage: React.FC = () => {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Chest No.</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Name</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Code Letter</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Mark</th>
+                                        {assignedJudges.map(judge => (
+                                            <th key={judge.id} className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Mark ({judge.name})</th>
+                                        ))}
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Final Mark</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -271,7 +191,12 @@ const TabulationPage: React.FC = () => {
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.chestNumber}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm"><input type="text" value={entry?.codeLetter || ''} onChange={(e) => handleTabulationChange(p.id, 'codeLetter', e.target.value)} className={`${inputClasses} max-w-[100px]`} disabled={isDeclared} /></td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm"><input type="number" value={entry?.mark ?? ''} onChange={(e) => handleTabulationChange(p.id, 'mark', +e.target.value)} className={`${inputClasses} max-w-[100px]`} disabled={isDeclared} /></td>
+                                                {assignedJudges.map(judge => (
+                                                    <td key={judge.id} className="px-4 py-4 whitespace-nowrap text-sm">
+                                                        <input type="number" value={entry?.marks?.[judge.id] ?? ''} onChange={(e) => handleTabulationChange(p.id, 'mark', e.target.value, judge.id)} className={`${inputClasses} max-w-[100px]`} disabled={isDeclared} />
+                                                    </td>
+                                                ))}
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">{entry?.finalMark?.toFixed(2) || '-'}</td>
                                             </tr>
                                         );
                                     })}
@@ -307,7 +232,7 @@ const TabulationPage: React.FC = () => {
                         if (!item) return null;
                         const resultKey = `${result.itemId}-${result.categoryId}`;
                         const isExpanded = expandedResult === resultKey;
-                        const allParticipantsInItem = state.tabulation.filter(t => t.itemId === result.itemId && t.categoryId === result.categoryId).sort((a,b) => (b.mark ?? -1) - (a.mark ?? -1));
+                        const allParticipantsInItem = state.tabulation.filter(t => t.itemId === result.itemId && t.categoryId === result.categoryId).sort((a,b) => (b.finalMark ?? -1) - (a.finalMark ?? -1));
                         
                         let rank = 0;
                         let lastMark = -1;
@@ -327,16 +252,16 @@ const TabulationPage: React.FC = () => {
                                             </tr></thead>
                                             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
                                                 {allParticipantsInItem.map((p, index) => {
-                                                    if(p.mark !== lastMark) rank = index + 1;
-                                                    lastMark = p.mark!;
+                                                    if(p.finalMark !== lastMark) rank = index + 1;
+                                                    lastMark = p.finalMark!;
                                                     const participant = getParticipant(p.participantId)!;
                                                     return (
                                                         <tr key={p.id}>
-                                                            <td className="p-2 font-medium">{p.mark !== null ? rank : '-'}</td>
+                                                            <td className="p-2 font-medium">{p.finalMark !== null ? rank : '-'}</td>
                                                             <td className="p-2">{participant.chestNumber}</td>
                                                             <td className="p-2 font-semibold text-zinc-800 dark:text-zinc-100">{participant.name}</td>
                                                             <td className="p-2">{getTeamName(p.participantId)}</td>
-                                                            <td className="p-2 font-bold text-indigo-600 dark:text-indigo-400">{p.mark}</td>
+                                                            <td className="p-2 font-bold text-indigo-600 dark:text-indigo-400">{p.finalMark?.toFixed(2)}</td>
                                                             <td className="p-2">{getGradeName(p.gradeId, item.type.toLowerCase() as 'single' | 'group')}</td>
                                                             <td className="p-2">{p.position ? <Trophy className={`w-4 h-4 inline-block ${p.position === 1 ? 'text-yellow-500' : p.position === 2 ? 'text-zinc-400' : 'text-yellow-700'}`} /> : '-' } {p.position || ''}</td>
                                                         </tr>

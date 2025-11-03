@@ -1,17 +1,17 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Menu, Search, UserCircle, Bell, LogOut, ChevronDown } from 'lucide-react';
+import { User } from '../types';
 
 interface HeaderProps {
     pageTitle: string;
     onMenuClick: () => void;
     handleLogout: () => void;
+    currentUser: User | null;
 }
 
-const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout }) => {
+const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, currentUser }) => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
-    const username = sessionStorage.getItem('username') || 'Admin';
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -65,8 +65,8 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout })
                     >
                         <UserCircle className="h-8 w-8 text-zinc-600 dark:text-zinc-300" />
                         <div className="hidden lg:block">
-                            <p className="text-sm font-medium text-left">{username}</p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager</p>
+                            <p className="text-sm font-medium text-left">{currentUser?.username}</p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">{currentUser?.role}</p>
                         </div>
                         <ChevronDown size={16} className={`text-zinc-500 dark:text-zinc-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -74,8 +74,8 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout })
                     {isProfileOpen && (
                         <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-800 rounded-md shadow-lg py-1 z-20 border border-zinc-200 dark:border-zinc-700">
                              <div className="px-4 py-2 border-b border-zinc-200 dark:border-zinc-700">
-                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{username}</p>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager</p>
+                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{currentUser?.username}</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">{currentUser?.role}</p>
                             </div>
                             <button 
                                 onClick={() => {

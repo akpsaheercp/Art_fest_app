@@ -9,6 +9,24 @@ export enum ResultStatus {
   DECLARED = 'Declared',
 }
 
+export enum UserRole {
+    MANAGER = 'Manager',
+    TEAM_LEADER = 'Team Leader',
+}
+
+export interface User {
+    id: string;
+    username: string;
+    password?: string; // Optional for security when sending to client
+    role: UserRole;
+    teamId?: string; // Only for Team Leaders
+}
+
+export interface Judge {
+  id: string;
+  name: string;
+}
+
 export interface Settings {
   organizingTeam: string;
   heading: string;
@@ -76,13 +94,21 @@ export interface ScheduledEvent {
   stage: string;
 }
 
+export interface JudgeAssignment {
+  id: string; // Composite key: `${itemId}-${categoryId}`
+  itemId: string;
+  categoryId: string;
+  judgeIds: string[];
+}
+
 export interface TabulationEntry {
   id: string; // Composite key: `${itemId}-${participantId}`
   itemId: string;
   categoryId: string;
   participantId: string;
   codeLetter: string;
-  mark: number | null;
+  marks: { [judgeId: string]: number | null };
+  finalMark: number | null;
   position: number | null;
   gradeId: string | null;
 }
@@ -108,8 +134,12 @@ export interface AppState {
   codeLetters: CodeLetter[];
   participants: Participant[];
   schedule: ScheduledEvent[];
+  judgeAssignments: JudgeAssignment[];
   tabulation: TabulationEntry[];
   results: Result[];
+  judges: Judge[];
+  users: User[];
+  permissions: { [key in UserRole]: string[] };
 }
 
 export type Action =
@@ -141,7 +171,17 @@ export type Action =
   | { type: 'UPDATE_PARTICIPANT'; payload: Participant }
   | { type: 'DELETE_PARTICIPANT'; payload: string }
   | { type: 'DELETE_MULTIPLE_PARTICIPANTS'; payload: string[] }
+  | { type: 'ADD_JUDGE'; payload: Judge }
+  | { type: 'UPDATE_JUDGE'; payload: Judge }
+  | { type: 'REORDER_JUDGES'; payload: Judge[] }
+  | { type: 'DELETE_JUDGE'; payload: string }
+  | { type: 'DELETE_MULTIPLE_JUDGES'; payload: string[] }
   | { type: 'SET_SCHEDULE'; payload: ScheduledEvent[] }
+  | { type: 'UPDATE_ITEM_JUDGES'; payload: { itemId: string, categoryId: string, judgeIds: string[] } }
   | { type: 'UPDATE_TABULATION_ENTRY'; payload: TabulationEntry }
   | { type: 'DECLARE_RESULT'; payload: { itemId: string, categoryId: string } }
-  | { type: 'UPDATE_RESULT_STATUS'; payload: { itemId: string, categoryId: string, status: ResultStatus } };
+  | { type: 'UPDATE_RESULT_STATUS'; payload: { itemId: string, categoryId: string, status: ResultStatus } }
+  | { type: 'ADD_USER'; payload: User }
+  | { type: 'UPDATE_USER'; payload: User }
+  | { type: 'DELETE_USER'; payload: string }
+  | { type: 'UPDATE_PERMISSIONS', payload: { role: UserRole, pages: string[] } };
