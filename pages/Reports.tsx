@@ -127,7 +127,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
     
     const headers: NodeListOf<HTMLElement>[] = [];
     tables.forEach(table => {
-      const tableHeaders = table.querySelectorAll<HTMLElement>('thead th[data-sortable="true"]');
+      // FIX: Replaced generic type argument with a type assertion (`as`) to avoid "Untyped function calls may not accept type arguments" error.
+      const tableHeaders = table.querySelectorAll('thead th[data-sortable="true"]') as NodeListOf<HTMLElement>;
       tableHeaders.forEach(header => {
         header.style.cursor = 'pointer';
         if (!header.querySelector('.sort-indicator')) {
@@ -285,29 +286,29 @@ const ReportsPage: React.FC = () => {
   `;
 
   const generateParticipantsList = () => {
-    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th data-sortable="true" data-column-index="0">Chest No.</th><th data-sortable="true" data-column-index="1">Name</th><th data-sortable="true" data-column-index="2">Team</th><th data-sortable="true" data-column-index="3">Category</th></tr></thead><tbody>`;
-    [...state.participants].sort((a,b) => a.chestNumber.localeCompare(b.chestNumber)).forEach(p => {
-        html += `<tr><td>${p.chestNumber}</td><td>${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`;
+    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Chest No.</th><th data-sortable="true" data-column-index="2">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Category</th></tr></thead><tbody>`;
+    [...state.participants].sort((a,b) => a.chestNumber.localeCompare(b.chestNumber)).forEach((p, index) => {
+        html += `<tr><td>${index + 1}</td><td>${p.chestNumber}</td><td>${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`;
     });
     html += `</tbody></table>`;
     return html;
   };
   
   const generateItemsList = () => {
-    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th data-sortable="true" data-column-index="0">Name</th><th data-sortable="true" data-column-index="1">Category</th><th data-sortable="true" data-column-index="2">Type</th><th data-sortable="true" data-column-index="3">Points (1/2/3)</th></tr></thead><tbody>`;
-    state.items.forEach(item => {
-        html += `<tr><td>${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td>${item.type}</td><td>${item.points.first}/${item.points.second}/${item.points.third}</td></tr>`;
+    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Name</th><th data-sortable="true" data-column-index="2">Category</th><th data-sortable="true" data-column-index="3">Type</th><th data-sortable="true" data-column-index="4">Points (1/2/3)</th></tr></thead><tbody>`;
+    state.items.forEach((item, index) => {
+        html += `<tr><td>${index + 1}</td><td>${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td>${item.type}</td><td>${item.points.first}/${item.points.second}/${item.points.third}</td></tr>`;
     });
     html += `</tbody></table>`;
     return html;
   };
 
   const generateSchedule = () => {
-    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th data-sortable="true" data-column-index="0">Date</th><th data-sortable="true" data-column-index="1">Time</th><th data-sortable="true" data-column-index="2">Item</th><th data-sortable="true" data-column-index="3">Category</th><th data-sortable="true" data-column-index="4">Stage</th></tr></thead><tbody>`;
-    state.schedule.forEach(event => {
+    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Date</th><th data-sortable="true" data-column-index="2">Time</th><th data-sortable="true" data-column-index="3">Item</th><th data-sortable="true" data-column-index="4">Category</th><th data-sortable="true" data-column-index="5">Stage</th></tr></thead><tbody>`;
+    state.schedule.forEach((event, index) => {
         const item = state.items.find(i => i.id === event.itemId);
         const category = state.categories.find(c => c.id === event.categoryId);
-        html += `<tr><td>${event.date}</td><td>${event.time}</td><td>${item?.name || 'N/A'}</td><td>${category?.name || 'N/A'}</td><td>${event.stage}</td></tr>`;
+        html += `<tr><td>${index + 1}</td><td>${event.date}</td><td>${event.time}</td><td>${item?.name || 'N/A'}</td><td>${category?.name || 'N/A'}</td><td>${event.stage}</td></tr>`;
     });
     html += `</tbody></table>`;
     return html;
@@ -320,21 +321,64 @@ const ReportsPage: React.FC = () => {
       if (!item) return;
       html += `<div class="${index > 0 ? 'page-break-before-always' : ''}">
         <h3>Results: ${item.name} (${getCategoryName(result.categoryId)})</h3>
-        <table><thead><tr><th data-sortable="true" data-column-index="0">Position</th><th data-sortable="true" data-column-index="1">Name</th><th data-sortable="true" data-column-index="2">Team</th><th data-sortable="true" data-column-index="3">Mark</th><th data-sortable="true" data-column-index="4">Grade</th></tr></thead><tbody>`;
-      result.winners.sort((a,b) => a.position - b.position).forEach(winner => {
+        <table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Position</th><th data-sortable="true" data-column-index="2">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Mark</th><th data-sortable="true" data-column-index="5">Grade</th></tr></thead><tbody>`;
+      result.winners.sort((a,b) => a.position - b.position).forEach((winner, winnerIndex) => {
         const p = getParticipant(winner.participantId);
         const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
         const grade = gradeConfig.find(g => g.id === winner.gradeId);
-        html += `<tr><td>${winner.position}</td><td>${p?.name || 'N/A'}</td><td>${getTeamName(p?.teamId || '')}</td><td>${winner.mark}</td><td>${grade?.name || '-'}</td></tr>`;
+        html += `<tr><td>${winnerIndex + 1}</td><td>${winner.position}</td><td>${p?.name || 'N/A'}</td><td>${getTeamName(p?.teamId || '')}</td><td>${winner.mark}</td><td>${grade?.name || '-'}</td></tr>`;
       });
       html += `</tbody></table></div>`;
     });
     return html;
   }
   
+  const generateItemParticipants = () => {
+    let html = `${getStyles()}`;
+    state.items.forEach((item, index) => {
+        html += `<div class="${index > 0 ? 'page-break-before-always' : ''}">`;
+        html += `<h3 class="mb-4 font-bold text-xl">Item: ${item.name} (${getCategoryName(item.categoryId)})</h3>`;
+        const participantsInItem = state.participants.filter(p => p.itemIds.includes(item.id));
+
+        if (participantsInItem.length === 0) {
+            html += `<p>No participants registered for this item.</p></div>`;
+            return;
+        }
+
+        html += `<table>
+            <thead>
+                <tr>
+                    <th data-sortable="false">Sl.No</th>
+                    <th data-sortable="true" data-column-index="1">Chest No.</th>
+                    <th data-sortable="true" data-column-index="2">Name</th>
+                    <th data-sortable="true" data-column-index="3">Code Letter</th>
+                    <th data-sortable="false">Signature</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        participantsInItem
+            .sort((a, b) => a.chestNumber.localeCompare(b.chestNumber))
+            .forEach((p, pIndex) => {
+                const tabulationEntry = state.tabulation.find(t => t.itemId === item.id && t.participantId === p.id);
+                html += `<tr>
+                    <td>${pIndex + 1}</td>
+                    <td>${p.chestNumber}</td>
+                    <td>${p.name}</td>
+                    <td>${tabulationEntry?.codeLetter || ''}</td>
+                    <td style="width: 200px;"></td>
+                </tr>`;
+            });
+
+        html += `</tbody></table></div>`;
+    });
+    return html;
+  };
+  
   const reports = [
     { id: 'participants', name: 'All Participants List', generator: generateParticipantsList, isSearchable: true },
     { id: 'items', name: 'All Items List', generator: generateItemsList, isSearchable: true },
+    { id: 'item_participants', name: 'Item-wise Participants', generator: generateItemParticipants, isSearchable: true },
     { id: 'schedule', name: 'Full Schedule', generator: generateSchedule, isSearchable: true },
     { id: 'results', name: 'Item-wise Results', generator: generateResults, isSearchable: true },
   ];
