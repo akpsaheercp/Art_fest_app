@@ -3,6 +3,12 @@ export enum ItemType {
   GROUP = 'Group',
 }
 
+export enum ResultStatus {
+  NOT_UPLOADED = 'Not Uploaded',
+  UPLOADED = 'Uploaded',
+  DECLARED = 'Declared',
+}
+
 export interface Settings {
   organizingTeam: string;
   heading: string;
@@ -84,7 +90,7 @@ export interface TabulationEntry {
 export interface Result {
     itemId: string;
     categoryId: string;
-    declared: boolean;
+    status: ResultStatus;
     winners: {
         participantId: string;
         position: number;
@@ -137,4 +143,5 @@ export type Action =
   | { type: 'DELETE_MULTIPLE_PARTICIPANTS'; payload: string[] }
   | { type: 'SET_SCHEDULE'; payload: ScheduledEvent[] }
   | { type: 'UPDATE_TABULATION_ENTRY'; payload: TabulationEntry }
-  | { type: 'DECLARE_RESULT'; payload: { itemId: string, categoryId: string } };
+  | { type: 'DECLARE_RESULT'; payload: { itemId: string, categoryId: string } }
+  | { type: 'UPDATE_RESULT_STATUS'; payload: { itemId: string, categoryId: string, status: ResultStatus } };

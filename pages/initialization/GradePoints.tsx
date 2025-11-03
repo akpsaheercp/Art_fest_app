@@ -9,7 +9,7 @@ const GradePointsManager: React.FC<{ itemType: 'single' | 'group' }> = ({ itemTy
     const { state, dispatch } = useAppState();
     const grades = state.gradePoints[itemType];
     const [formData, setFormData] = useState<Omit<Grade, 'id'>>({ name: '', lowerLimit: 0, upperLimit: 100, points: 0 });
-    const inputClasses = "block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    const inputClasses = "block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
 
     const handleAdd = (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,7 +26,7 @@ const GradePointsManager: React.FC<{ itemType: 'single' | 'group' }> = ({ itemTy
                 <input type="number" placeholder="Min Mark" value={formData.lowerLimit} onChange={e => setFormData({...formData, lowerLimit: +e.target.value})} className={inputClasses}/>
                 <input type="number" placeholder="Max Mark" value={formData.upperLimit} onChange={e => setFormData({...formData, upperLimit: +e.target.value})} className={inputClasses}/>
                 <input type="number" placeholder="Points" value={formData.points} onChange={e => setFormData({...formData, points: +e.target.value})} className={inputClasses}/>
-                <button type="submit" className="sm:col-span-5 px-4 py-2 mt-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 text-sm">Add Grade</button>
+                <button type="submit" className="sm:col-span-5 px-4 py-2 mt-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm">Add Grade</button>
             </form>
             <ul className="space-y-2">
                 {grades.map(grade => (

@@ -125,7 +125,7 @@ const ImportItemsCSVModal: React.FC<ImportItemsCSVModalProps> = ({ isOpen, onClo
                             <li><code className="bg-zinc-100 dark:bg-zinc-800 p-1 rounded text-xs">categoryName</code> must match an existing category.</li>
                             <li><code className="bg-zinc-100 dark:bg-zinc-800 p-1 rounded text-xs">type</code> must be either 'Single' or 'Group'.</li>
                         </ul>
-                        <button onClick={handleDownloadTemplate} className="mt-2 flex items-center gap-2 text-sm text-teal-600 dark:text-teal-400 hover:underline">
+                        <button onClick={handleDownloadTemplate} className="mt-2 flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
                             <FileDown className="h-4 w-4" /> Download Template
                         </button>
                     </div>
@@ -161,7 +161,7 @@ const ImportItemsCSVModal: React.FC<ImportItemsCSVModalProps> = ({ isOpen, onClo
                 </div>
                 <div className="flex justify-end gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
                     <button type="button" onClick={handleClose} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700">Close</button>
-                    <button type="button" onClick={handleConfirmImport} disabled={isProcessing || status.validItems.length === 0} className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:bg-teal-500/50 disabled:cursor-not-allowed">
+                    <button type="button" onClick={handleConfirmImport} disabled={isProcessing || status.validItems.length === 0} className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:bg-indigo-500/50 disabled:cursor-not-allowed">
                         {`Confirm Import (${status.validItems.length})`}
                     </button>
                 </div>
@@ -187,7 +187,7 @@ const ItemsManagement: React.FC = () => {
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
-    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
     const thClasses = "px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider";
     const tdClasses = "px-4 py-4 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300";
 
@@ -298,7 +298,7 @@ const ItemsManagement: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex gap-2 pt-2">
-                        <button type="submit" className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">{editingItemId ? 'Update Item' : 'Add Item'}</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600">{editingItemId ? 'Update Item' : 'Add Item'}</button>
                         {editingItemId && <button type="button" onClick={resetItemForm} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700">Cancel</button>}
                     </div>
                 </form>
@@ -317,7 +317,7 @@ const ItemsManagement: React.FC = () => {
                     <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                         <thead className="bg-zinc-50 dark:bg-zinc-800">
                             <tr>
-                                <th className={thClasses}><input type="checkbox" onChange={handleSelectAll} checked={selectedItems.size > 0 && selectedItems.size === state.items.length} className="h-4 w-4 rounded border-zinc-300 text-teal-500 focus:ring-teal-500" /></th>
+                                <th className={thClasses}><input type="checkbox" onChange={handleSelectAll} checked={selectedItems.size > 0 && selectedItems.size === state.items.length} className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" /></th>
                                 <th className={thClasses}>Name</th>
                                 <th className={thClasses}>Category</th>
                                 <th className={thClasses}>Type</th>
@@ -328,15 +328,15 @@ const ItemsManagement: React.FC = () => {
                         </thead>
                         <tbody className="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800">
                             {state.items.map(item => (
-                                <tr key={item.id} className={`${selectedItems.has(item.id) ? 'bg-teal-50 dark:bg-teal-900/20' : ''}`}>
-                                    <td className={tdClasses}><input type="checkbox" onChange={() => handleSelectItem(item.id)} checked={selectedItems.has(item.id)} className="h-4 w-4 rounded border-zinc-300 text-teal-500 focus:ring-teal-500" /></td>
+                                <tr key={item.id} className={`${selectedItems.has(item.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
+                                    <td className={tdClasses}><input type="checkbox" onChange={() => handleSelectItem(item.id)} checked={selectedItems.has(item.id)} className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" /></td>
                                     <td className={`${tdClasses} font-medium text-zinc-900 dark:text-zinc-100`}>{item.name}</td>
                                     <td className={tdClasses}>{state.categories.find(c => c.id === item.categoryId)?.name}</td>
                                     <td className={tdClasses}>{item.type}</td>
                                     <td className={tdClasses}>{`${item.points.first}/${item.points.second}/${item.points.third}`}</td>
                                     <td className={`${tdClasses} text-center`}>{item.maxParticipants}</td>
                                     <td className={`${tdClasses} space-x-2 whitespace-nowrap`}>
-                                        <button onClick={() => handleEditItem(item)} className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-400 text-sm font-medium">Edit</button>
+                                        <button onClick={() => handleEditItem(item)} className="text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400 text-sm font-medium">Edit</button>
                                     </td>
                                 </tr>
                             ))}

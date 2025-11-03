@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch } from 'react';
-import { AppState, Action, ItemType, Result, TabulationEntry } from '../types';
+import { AppState, Action, ItemType, Result, TabulationEntry, ResultStatus } from '../types';
 
 const initialState: AppState = {
   settings: {
@@ -125,6 +125,28 @@ const appReducer = (state: AppState, action: Action): AppState => {
         }
         return { ...state, tabulation: [...state.tabulation, action.payload] };
     }
+    case 'UPDATE_RESULT_STATUS': {
+        const { itemId, categoryId, status } = action.payload;
+        const existingResultIndex = state.results.findIndex(
+            r => r.itemId === itemId && r.categoryId === categoryId
+        );
+        let newResults = [...state.results];
+
+        if (existingResultIndex > -1) {
+            newResults[existingResultIndex] = {
+                ...newResults[existingResultIndex],
+                status,
+            };
+        } else {
+            newResults.push({
+                itemId,
+                categoryId,
+                status,
+                winners: [],
+            });
+        }
+        return { ...state, results: newResults };
+    }
     case 'DECLARE_RESULT': {
         const { itemId, categoryId } = action.payload;
         const item = state.items.find(i => i.id === itemId);
@@ -165,7 +187,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
         const newResult: Result = {
             itemId,
             categoryId,
-            declared: true,
+            status: ResultStatus.DECLARED,
             winners: winners.map(w => ({
                 participantId: w.participantId,
                 position: w.position,
@@ -201,7 +223,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const savedState = localStorage.getItem('artFestState');
     if (savedState) {
       try {
-        const parsedState = JSON.parse(savedState);
+        let parsedState = JSON.parse(savedState);
+        // Migration logic for results status
+        if (parsedState.results) {
+            parsedState.results = parsedState.results.map((r: any) => {
+                if (typeof r.declared === 'boolean') {
+                    const newResult = { ...r, status: r.declared ? ResultStatus.DECLARED : ResultStatus.NOT_UPLOADED };
+                    delete newResult.declared;
+                    return newResult;
+                }
+                return r;
+            });
+        }
         dispatch({ type: 'SET_STATE', payload: parsedState });
       } catch (error) {
         console.error("Failed to parse state from localStorage", error);

@@ -8,7 +8,7 @@ const ResultsPage: React.FC = () => {
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
     const [selectedItemId, setSelectedItemId] = useState<string>('');
     
-    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
     const thClasses = "px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider";
     const tdClasses = "px-4 py-4 whitespace-nowrap text-sm text-zinc-700 dark:text-zinc-300";
 
@@ -92,7 +92,7 @@ const ResultsPage: React.FC = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <button onClick={handleDeclareResult} className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">
+                        <button onClick={handleDeclareResult} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                             Declare Result
                         </button>
                     </>
@@ -119,7 +119,7 @@ const ResultsPage: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center space-x-4">
-                                               <span className="font-semibold text-teal-500">Grade: {getGradeName(winner.gradeId, item.type.toLowerCase() as 'single' | 'group')}</span>
+                                               <span className="font-semibold text-indigo-500">Grade: {getGradeName(winner.gradeId, item.type.toLowerCase() as 'single' | 'group')}</span>
                                                <span className="font-bold">{winner.mark} pts</span>
                                             </div>
                                         </li>

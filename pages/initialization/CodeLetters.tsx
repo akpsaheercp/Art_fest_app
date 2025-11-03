@@ -9,8 +9,8 @@ const CodeLetters: React.FC = () => {
     const [newCode, setNewCode] = useState('');
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
-    const inputClasses = "flex-grow block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
-    const editableInputClasses = "w-full bg-transparent focus:outline-none focus:ring-1 focus:ring-teal-500 rounded px-1 -mx-1";
+    const inputClasses = "flex-grow block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
+    const editableInputClasses = "w-full bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1 -mx-1";
 
     const handleAddCodeLetter = () => {
         if (newCode.trim()) {
@@ -61,7 +61,7 @@ const CodeLetters: React.FC = () => {
                 <div className="max-w-md mx-auto">
                     <div className="flex gap-2 mb-4">
                         <input type="text" value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="New code" className={inputClasses} />
-                        <button onClick={handleAddCodeLetter} className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">Add</button>
+                        <button onClick={handleAddCodeLetter} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add</button>
                     </div>
                     <ul className="space-y-2">
                         {state.codeLetters.map(c => (
@@ -76,7 +76,7 @@ const CodeLetters: React.FC = () => {
                                 onDragLeave={() => setDragOverId(null)}
                                 className={`flex justify-between items-center p-2 bg-zinc-100 dark:bg-zinc-800/50 rounded-md transition-all duration-200
                                     ${draggedId === c.id ? 'opacity-50' : ''}
-                                    ${dragOverId === c.id && draggedId !== c.id ? 'border-t-2 border-teal-500' : ''}
+                                    ${dragOverId === c.id && draggedId !== c.id ? 'border-t-2 border-indigo-500' : ''}
                                 `}
                             >
                                 <div className="flex items-center gap-2 flex-grow">

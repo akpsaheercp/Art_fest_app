@@ -64,15 +64,15 @@ const ManagementList = <T extends ListItem>({ title, items, onAdd, onUpdate, onR
         setDraggedId(null);
     };
 
-    const inputClasses = "flex-grow block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
-    const editableInputClasses = "w-full bg-transparent focus:outline-none focus:ring-1 focus:ring-teal-500 rounded px-1 -mx-1";
+    const inputClasses = "flex-grow block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
+    const editableInputClasses = "w-full bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1 -mx-1";
 
     return (
         <div>
             <h3 className="text-lg font-medium text-zinc-800 dark:text-zinc-200 mb-4">{title}</h3>
             <div className="flex gap-2 mb-4">
                 <input type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder={`New ${title.slice(0, -1)} name`} className={inputClasses} />
-                <button onClick={handleAdd} className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">Add</button>
+                <button onClick={handleAdd} className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600">Add</button>
             </div>
             
             {selected.size > 0 && (
@@ -86,7 +86,7 @@ const ManagementList = <T extends ListItem>({ title, items, onAdd, onUpdate, onR
             
             <ul className="space-y-2">
                  <li className="flex items-center p-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    <input type="checkbox" className="h-4 w-4 mr-3 rounded border-zinc-300 text-teal-500 focus:ring-teal-500" onChange={handleSelectAll} checked={selected.size > 0 && selected.size === items.length} />
+                    <input type="checkbox" className="h-4 w-4 mr-3 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" onChange={handleSelectAll} checked={selected.size > 0 && selected.size === items.length} />
                     <span>Name</span>
                  </li>
                 {items.map(item => (
@@ -97,10 +97,10 @@ const ManagementList = <T extends ListItem>({ title, items, onAdd, onUpdate, onR
                         onDrop={(e) => handleDrop(e, item.id)}
                         onDragOver={(e) => e.preventDefault()}
                         onDragEnd={handleDragEnd}
-                        className={`flex justify-between items-center p-2 rounded-md transition-all duration-200 ${selected.has(item.id) ? 'bg-teal-50 dark:bg-teal-900/20' : 'bg-zinc-100 dark:bg-zinc-800/50'} ${draggedId === item.id ? 'opacity-30' : ''}`}
+                        className={`flex justify-between items-center p-2 rounded-md transition-all duration-200 ${selected.has(item.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'bg-zinc-100 dark:bg-zinc-800/50'} ${draggedId === item.id ? 'opacity-30' : ''}`}
                     >
                         <div className="flex items-center gap-2 flex-grow">
-                            <input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-teal-500 focus:ring-teal-500" checked={selected.has(item.id)} onChange={() => handleSelect(item.id)} />
+                            <input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" checked={selected.has(item.id)} onChange={() => handleSelect(item.id)} />
                             <GripVertical className="h-5 w-5 text-zinc-400 cursor-move" aria-label="Drag to reorder" />
                             <input
                                 type="text"

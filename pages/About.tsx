@@ -1,9 +1,12 @@
 
+
 import React from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
 import { Users, ClipboardList, Calendar, Trophy, UserPlus, Edit3, BarChart2 } from 'lucide-react';
 import { TABS } from '../constants';
+// FIX: Import ResultStatus to check the status of a result.
+import { ResultStatus } from '../types';
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -29,7 +32,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
     teams: state.teams.length,
     items: state.items.length,
     scheduled: state.schedule.length,
-    resultsDeclared: state.results.filter(r => r.declared).length
+    // FIX: The 'declared' property on a result has been replaced by 'status'.
+    resultsDeclared: state.results.filter(r => r.status === ResultStatus.DECLARED).length
   };
 
   return (

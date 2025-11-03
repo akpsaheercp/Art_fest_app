@@ -3,7 +3,7 @@ import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
 import { Users, ClipboardList, Calendar, Trophy, UserPlus, Edit3, BarChart2, Settings, Crown } from 'lucide-react';
 import { TABS } from '../constants';
-import { ItemType } from '../types';
+import { ItemType, ResultStatus } from '../types';
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -29,7 +29,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
     teams: state.teams.length,
     items: state.items.length,
     scheduled: state.schedule.length,
-    resultsDeclared: state.results.filter(r => r.declared).length
+    resultsDeclared: state.results.filter(r => r.status === ResultStatus.DECLARED).length
   };
 
   const teamPoints = useMemo(() => {
@@ -38,7 +38,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
     teams.forEach(t => tPoints[t.id] = 0);
 
     results.forEach(result => {
-        if (!result.declared) return;
+        if (result.status !== ResultStatus.DECLARED) return;
         const item = items.find(i => i.id === result.itemId);
         if (!item) return;
 
@@ -73,9 +73,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
   return (
     <div className="space-y-8">
        {/* Hero Banner */}
-       <div className="p-8 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-xl">
+       <div className="p-8 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-xl">
           <h1 className="text-4xl font-bold">{state.settings.heading}</h1>
-          <p className="mt-2 text-lg text-teal-100 opacity-90">{state.settings.description}</p>
+          <p className="mt-2 text-lg text-indigo-100 opacity-90">{state.settings.description}</p>
       </div>
 
       {/* Main content grid */}
@@ -97,11 +97,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
                                         )}
                                         <span className="font-bold text-md text-zinc-800 dark:text-zinc-100">{team.name}</span>
                                     </div>
-                                    <span className={`font-bold text-lg ${isWinner ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400'}`}>{team.points} pts</span>
+                                    <span className={`font-bold text-lg ${isWinner ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{team.points} pts</span>
                                 </div>
                                 <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2.5">
                                     <div 
-                                        className={`${isWinner ? 'bg-amber-400' : 'bg-teal-500'} h-2.5 rounded-full transition-all duration-500 ease-out`} 
+                                        className={`${isWinner ? 'bg-amber-400' : 'bg-indigo-500'} h-2.5 rounded-full transition-all duration-500 ease-out`} 
                                         style={{ width: `${progress}%` }}
                                         title={`${team.points} points`}
                                     ></div>
@@ -118,7 +118,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
           <div className="lg:col-span-3 space-y-6">
               <Card title="Event Overview">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                      <StatCard icon={Users} title="Total Participants" value={stats.participants} color="teal" onClick={() => setActiveTab(TABS.DATA_ENTRY)} />
+                      <StatCard icon={Users} title="Total Participants" value={stats.participants} color="indigo" onClick={() => setActiveTab(TABS.DATA_ENTRY)} />
                       <StatCard icon={Users} title="Total Teams" value={stats.teams} color="sky" onClick={() => setActiveTab(TABS.TEAMS_CATEGORIES)} />
                       <StatCard icon={ClipboardList} title="Total Items" value={stats.items} color="amber" onClick={() => setActiveTab(TABS.ITEMS)} />
                       <StatCard icon={Calendar} title="Events Scheduled" value={stats.scheduled} color="violet" onClick={() => setActiveTab(TABS.SCHEDULE)} />
@@ -132,19 +132,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ setActiveTab }) => {
                 <Card title="Quick Actions">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <button onClick={() => setActiveTab(TABS.GENERAL_SETTINGS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <Settings className="h-8 w-8 text-teal-500 mb-2" />
+                            <Settings className="h-8 w-8 text-indigo-500 mb-2" />
                             <span className="text-sm font-medium">Event Setup</span>
                         </button>
                         <button onClick={() => setActiveTab(TABS.DATA_ENTRY)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <UserPlus className="h-8 w-8 text-teal-500 mb-2" />
+                            <UserPlus className="h-8 w-8 text-indigo-500 mb-2" />
                             <span className="text-sm font-medium">Add Participant</span>
                         </button>
                         <button onClick={() => setActiveTab(TABS.TABULATION)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <Edit3 className="h-8 w-8 text-teal-500 mb-2" />
+                            <Edit3 className="h-8 w-8 text-indigo-500 mb-2" />
                             <span className="text-sm font-medium">Enter Marks</span>
                         </button>
                         <button onClick={() => setActiveTab(TABS.POINTS)} className="p-4 flex flex-col items-center justify-center text-center bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
-                            <BarChart2 className="h-8 w-8 text-teal-500 mb-2" />
+                            <BarChart2 className="h-8 w-8 text-indigo-500 mb-2" />
                             <span className="text-sm font-medium">View Points</span>
                         </button>
                     </div>

@@ -129,7 +129,7 @@ const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose }) => {
                             <li>Team and Category names must match existing entries in the system.</li>
                             <li>Chest numbers must be unique.</li>
                         </ul>
-                        <button onClick={handleDownloadTemplate} className="mt-2 flex items-center gap-2 text-sm text-teal-600 dark:text-teal-400 hover:underline">
+                        <button onClick={handleDownloadTemplate} className="mt-2 flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
                             <FileDown className="h-4 w-4" /> Download Template
                         </button>
                     </div>
@@ -171,7 +171,7 @@ const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose }) => {
                 </div>
                 <div className="flex justify-end gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
                     <button type="button" onClick={handleClose} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700">Close</button>
-                    <button type="button" onClick={handleConfirmImport} disabled={isProcessing || status.validParticipants.length === 0} className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:bg-teal-500/50 disabled:cursor-not-allowed">
+                    <button type="button" onClick={handleConfirmImport} disabled={isProcessing || status.validParticipants.length === 0} className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:bg-indigo-500/50 disabled:cursor-not-allowed">
                         {isProcessing ? 'Processing...' : `Confirm Import (${status.validParticipants.length})`}
                     </button>
                 </div>
@@ -212,7 +212,7 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
         }
     }, [editingParticipant, isOpen]);
     
-    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -294,7 +294,7 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
                         </div>
                          <div>
                             <label className="block text-sm font-medium">Items ({formData.itemIds.length} / {state.settings.maxItemsPerParticipant})</label>
-                            <div className="mt-1 p-2 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-md h-40 overflow-y-auto space-y-2">
+                            <div className="mt-1 p-2 border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-md h-40 overflow-y-auto space-y-2">
                                 {formData.categoryId ? (
                                     availableItems.length > 0 ? (
                                         availableItems.map(item => {
@@ -308,7 +308,7 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
                                                         checked={isChecked}
                                                         disabled={isDisabled}
                                                         onChange={() => handleItemCheckboxChange(item.id)}
-                                                        className="h-4 w-4 rounded border-zinc-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                                                        className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
                                                     />
                                                     <label
                                                         htmlFor={`item-modal-${item.id}`}
@@ -330,7 +330,7 @@ const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onC
                     </div>
                     <div className="flex justify-end gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700 rounded-b-lg">
                         <button type="button" onClick={onClose} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700">Cancel</button>
-                        <button type="submit" className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">{editingParticipant ? 'Update Participant' : 'Add Participant'}</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600">{editingParticipant ? 'Update Participant' : 'Add Participant'}</button>
                     </div>
                 </form>
             </div>
@@ -407,10 +407,10 @@ const DataEntryPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const inputClasses = "block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    const inputClasses = "block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
     
     const renderSortIcon = (key: keyof Participant) => (
-        <ArrowUpDown size={14} className={`ml-1 inline-block transition-transform ${sort.key === key ? 'text-teal-500' : 'text-zinc-400'} ${sort.key === key && sort.dir === 'desc' ? 'rotate-180' : ''}`} />
+        <ArrowUpDown size={14} className={`ml-1 inline-block transition-transform ${sort.key === key ? 'text-indigo-500' : 'text-zinc-400'} ${sort.key === key && sort.dir === 'desc' ? 'rotate-180' : ''}`} />
     );
 
     return (
@@ -422,7 +422,7 @@ const DataEntryPage: React.FC = () => {
                         <Upload className="h-4 w-4" />
                         <span>Import CSV</span>
                     </button>
-                    <button onClick={handleAddNew} className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 shadow-sm transition-colors">
+                    <button onClick={handleAddNew} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 shadow-sm transition-colors">
                         <Plus className="h-5 w-5" />
                         <span>Add Participant</span>
                     </button>
@@ -443,8 +443,8 @@ const DataEntryPage: React.FC = () => {
                 </div>
 
                 {selected.size > 0 && (
-                    <div className="mb-4 p-3 bg-teal-50 dark:bg-teal-900/20 rounded-md flex justify-between items-center">
-                        <p className="text-sm font-medium text-teal-700 dark:text-teal-300">{selected.size} participant(s) selected.</p>
+                    <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-md flex justify-between items-center">
+                        <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{selected.size} participant(s) selected.</p>
                         <button onClick={handleDeleteSelected} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 shadow-sm transition-colors">
                             <Trash2 className="h-4 w-4" />
                             <span>Delete Selected</span>
@@ -456,7 +456,7 @@ const DataEntryPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                        <thead className="bg-zinc-50 dark:bg-zinc-800">
                            <tr>
-                               <th className="px-4 py-3"><input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-teal-500 focus:ring-teal-500" onChange={handleSelectAll} checked={selected.size > 0 && selected.size === filteredAndSortedParticipants.length} /></th>
+                               <th className="px-4 py-3"><input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" onChange={handleSelectAll} checked={selected.size > 0 && selected.size === filteredAndSortedParticipants.length} /></th>
                                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"><button onClick={() => handleSort('chestNumber')} className="flex items-center">Chest No. {renderSortIcon('chestNumber')}</button></th>
                                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"><button onClick={() => handleSort('name')} className="flex items-center">Name {renderSortIcon('name')}</button></th>
                                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Team</th>
@@ -467,15 +467,15 @@ const DataEntryPage: React.FC = () => {
                        </thead>
                        <tbody className="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800">
                             {filteredAndSortedParticipants.map(p => (
-                                <tr key={p.id} className={`${selected.has(p.id) ? 'bg-teal-50 dark:bg-teal-900/20' : ''}`}>
-                                    <td className="px-4 py-4"><input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-teal-500 focus:ring-teal-500" checked={selected.has(p.id)} onChange={() => handleSelect(p.id)} /></td>
+                                <tr key={p.id} className={`${selected.has(p.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
+                                    <td className="px-4 py-4"><input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" checked={selected.has(p.id)} onChange={() => handleSelect(p.id)} /></td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.chestNumber}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{state.teams.find(t=>t.id === p.teamId)?.name}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{state.categories.find(c=>c.id === p.categoryId)?.name}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.itemIds.length}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm space-x-2">
-                                        <button onClick={() => handleEdit(p)} className="font-medium text-teal-500 hover:text-teal-700 dark:hover:text-teal-400">Edit</button>
+                                        <button onClick={() => handleEdit(p)} className="font-medium text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400">Edit</button>
                                     </td>
                                 </tr>
                             ))}

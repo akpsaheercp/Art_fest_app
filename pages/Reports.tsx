@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
 import { X, Printer, ChevronDown, FileDown } from 'lucide-react';
-import { ItemType } from '../types';
+import { ItemType, ResultStatus } from '../types';
 
 // --- ReportViewer Modal Component ---
 interface ReportViewerProps {
@@ -127,7 +128,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
     
     const headers: NodeListOf<HTMLElement>[] = [];
     tables.forEach(table => {
-      // FIX: Replaced generic type argument with a type assertion (`as`) to avoid "Untyped function calls may not accept type arguments" error.
       const tableHeaders = table.querySelectorAll('thead th[data-sortable="true"]') as NodeListOf<HTMLElement>;
       tableHeaders.forEach(header => {
         header.style.cursor = 'pointer';
@@ -170,16 +170,18 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
           <script src="https://cdn.tailwindcss.com"></script>
           <script>
             tailwind.config = {
-              theme: { extend: { colors: { teal: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4', 400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a', 950: '#042f2e' }, zinc: { 50: '#fafafa', 100: '#f4f4f5', 200: '#e4e4e7', 300: '#d4d4d8', 400: '#a1a1aa', 500: '#71717a', 600: '#52525b', 700: '#3f3f46', 800: '#27272a', 900: '#18181b', 950: '#09090b' }, }, }, },
+              theme: { extend: { colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81', 950: '#1e1b4b' }, zinc: { 50: '#fafafa', 100: '#f4f4f5', 200: '#e4e4e7', 300: '#d4d4d8', 400: '#a1a1aa', 500: '#71717a', 600: '#52525b', 700: '#3f3f46', 800: '#27272a', 900: '#18181b', 950: '#09090b' }, }, }, },
             };
           </script>
           <style> 
             @media print {
               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               .page-break-before-always { page-break-before: always; }
+              th, td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
             body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; } 
             .sort-indicator { display: none !important; } 
+            .no-wrap { white-space: nowrap; }
           </style>
         </head>
         <body>
@@ -230,7 +232,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
                         placeholder={`Find in ${title}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                        className="w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                 </div>
             ) : <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100">{title}</h2>}
@@ -239,7 +241,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ isOpen, onClose, title, con
               <div className="relative" ref={actionsMenuRef}>
                 <button
                   onClick={() => setIsActionsOpen(prev => !prev)}
-                  className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors"
                   aria-haspopup="true" aria-expanded={isActionsOpen} aria-label="Export options"
                 >
                   <Printer className="h-4 w-4" /> <span>Export</span>
@@ -285,21 +287,69 @@ const ReportsPage: React.FC = () => {
   const getTeamName = (id: string) => state.teams.find(t => t.id === id)?.name || 'N/A';
   const getCategoryName = (id: string) => state.categories.find(c => c.id === id)?.name || 'N/A';
   const getParticipant = (id: string) => state.participants.find(p => p.id === id);
+  
+  const reportCounts = useMemo(() => {
+    const participantsCount = state.participants.filter(p => 
+        (!filters.teamId || p.teamId === filters.teamId) && 
+        (!filters.categoryId || p.categoryId === filters.categoryId)
+    ).length;
+
+    const itemsCount = state.items.filter(item => 
+        !filters.categoryId || item.categoryId === filters.categoryId
+    ).length;
+
+    const itemParticipantsCount = state.items.filter(item => !filters.categoryId || item.categoryId === filters.categoryId)
+        .reduce((acc, item) => {
+            const count = state.participants.filter(p => 
+                p.itemIds.includes(item.id) && 
+                (!filters.teamId || p.teamId === filters.teamId)
+            ).length;
+            return acc + count;
+        }, 0);
+    
+    const scheduleCount = state.schedule.filter(event => 
+        !filters.categoryId || event.categoryId === filters.categoryId
+    ).length;
+    
+    const resultsCount = state.results.filter(result => {
+        if (result.status !== ResultStatus.DECLARED) return false;
+        const categoryMatch = !filters.categoryId || result.categoryId === filters.categoryId;
+        if (!categoryMatch) return false;
+
+        if (filters.teamId) {
+            return result.winners.some(winner => {
+                const participant = getParticipant(winner.participantId);
+                return participant && participant.teamId === filters.teamId;
+            });
+        }
+        return true;
+    }).length;
+
+    return {
+        participants: participantsCount,
+        items: itemsCount,
+        item_participants: itemParticipantsCount,
+        schedule: scheduleCount,
+        results: resultsCount,
+    };
+  }, [state.participants, state.items, state.schedule, state.results, filters]);
+
 
   const getStyles = () => `
     <style>
       .grid { display: grid; gap: 1rem; } .grid-cols-2 { grid-template-columns: repeat(2, 1fr); } .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
       .id-card { border: 1px solid #ccc !important; page-break-inside: avoid; padding: 1rem; text-align: center; height: 12rem; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 14px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 14px; }
       th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } thead { background-color: #f2f2f2; } th { font-weight: bold; }
       .page-break-before-always { page-break-before: always; } .font-bold { font-weight: 700; } .font-medium { font-weight: 500; }
       .text-lg { font-size: 1.125rem; } .text-xl { font-size: 1.25rem; } .text-sm { font-size: 0.875rem; } .text-xs { font-size: 0.75rem; }
-      .mb-2 { margin-bottom: 0.5rem; } .mb-4 { margin-bottom: 1rem; }
+      .mb-2 { margin-bottom: 0.5rem; } .mb-4 { margin-bottom: 1rem; } .mb-6 { margin-bottom: 1.5rem; }
+      .no-wrap { white-space: nowrap; }
     </style>
   `;
 
   const generateParticipantsList = (filters: ReportFilters) => {
-    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Chest No.</th><th data-sortable="true" data-column-index="2">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Category</th></tr></thead><tbody>`;
+    let html = `${getStyles()}<h3>All Participants</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Chest No.</th><th data-sortable="true" data-column-index="2" class="no-wrap">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Category</th></tr></thead><tbody>`;
     const filteredParticipants = state.participants.filter(p => {
         const teamMatch = filters.teamId ? p.teamId === filters.teamId : true;
         const categoryMatch = filters.categoryId ? p.categoryId === filters.categoryId : true;
@@ -307,51 +357,94 @@ const ReportsPage: React.FC = () => {
     });
 
     [...filteredParticipants].sort((a,b) => a.chestNumber.localeCompare(b.chestNumber)).forEach((p, index) => {
-        html += `<tr><td>${index + 1}</td><td>${p.chestNumber}</td><td style="white-space: nowrap;">${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`;
+        html += `<tr><td>${index + 1}</td><td>${p.chestNumber}</td><td class="no-wrap">${p.name}</td><td>${getTeamName(p.teamId)}</td><td>${getCategoryName(p.categoryId)}</td></tr>`;
     });
     html += `</tbody></table>`;
     return html;
   };
   
   const generateItemsList = (filters: ReportFilters) => {
-    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Name</th><th data-sortable="true" data-column-index="2">Category</th><th data-sortable="true" data-column-index="3">Type</th><th data-sortable="true" data-column-index="4">Points (1/2/3)</th></tr></thead><tbody>`;
+    let html = `${getStyles()}<h3>All Items</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1" class="no-wrap">Name</th><th data-sortable="true" data-column-index="2">Category</th><th data-sortable="true" data-column-index="3">Type</th><th data-sortable="true" data-column-index="4">Points (1/2/3)</th></tr></thead><tbody>`;
     const filteredItems = state.items.filter(item => filters.categoryId ? item.categoryId === filters.categoryId : true);
     
     filteredItems.forEach((item, index) => {
-        html += `<tr><td>${index + 1}</td><td style="white-space: nowrap;">${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td>${item.type}</td><td>${item.points.first}/${item.points.second}/${item.points.third}</td></tr>`;
+        html += `<tr><td>${index + 1}</td><td class="no-wrap">${item.name}</td><td>${getCategoryName(item.categoryId)}</td><td>${item.type}</td><td>${item.points.first}/${item.points.second}/${item.points.third}</td></tr>`;
     });
     html += `</tbody></table>`;
     return html;
   };
 
   const generateSchedule = (filters: ReportFilters) => {
-    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Date</th><th data-sortable="true" data-column-index="2">Time</th><th data-sortable="true" data-column-index="3">Item</th><th data-sortable="true" data-column-index="4">Category</th><th data-sortable="true" data-column-index="5">Stage</th></tr></thead><tbody>`;
+    let html = `${getStyles()}<h3>Full Schedule</h3><table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Date</th><th data-sortable="true" data-column-index="2">Time</th><th data-sortable="true" data-column-index="3" class="no-wrap">Item</th><th data-sortable="true" data-column-index="4">Category</th><th data-sortable="true" data-column-index="5">Stage</th></tr></thead><tbody>`;
     const filteredSchedule = state.schedule.filter(event => filters.categoryId ? event.categoryId === filters.categoryId : true);
     
     filteredSchedule.forEach((event, index) => {
         const item = state.items.find(i => i.id === event.itemId);
         const category = state.categories.find(c => c.id === event.categoryId);
-        html += `<tr><td>${index + 1}</td><td>${event.date}</td><td>${event.time}</td><td style="white-space: nowrap;">${item?.name || 'N/A'}</td><td>${category?.name || 'N/A'}</td><td>${event.stage}</td></tr>`;
+        html += `<tr><td>${index + 1}</td><td>${event.date}</td><td>${event.time}</td><td class="no-wrap">${item?.name || 'N/A'}</td><td>${category?.name || 'N/A'}</td><td>${event.stage}</td></tr>`;
     });
     html += `</tbody></table>`;
     return html;
   }
+  
+  const getFilteredResults = (filters: ReportFilters) => {
+    return state.results.filter(result => {
+        if (result.status !== ResultStatus.DECLARED) return false;
+        
+        const categoryMatch = !filters.categoryId || result.categoryId === filters.categoryId;
+        if (!categoryMatch) return false;
 
-  const generateResults = (filters: ReportFilters) => {
+        if (filters.teamId) {
+            return result.winners.some(winner => {
+                const participant = getParticipant(winner.participantId);
+                return participant && participant.teamId === filters.teamId;
+            });
+        }
+        return true;
+    });
+  };
+
+  const generateResultsPaginated = (filters: ReportFilters) => {
     let html = `${getStyles()}`;
-    const filteredResults = state.results.filter(result => filters.categoryId ? result.categoryId === filters.categoryId : true);
-
+    const filteredResults = getFilteredResults(filters);
+    
+    if (filteredResults.length === 0) return `${getStyles()}<p>No declared results match the selected filters.</p>`;
+    
     filteredResults.forEach((result, index) => {
       const item = state.items.find(i => i.id === result.itemId);
       if (!item) return;
       html += `<div class="${index > 0 ? 'page-break-before-always' : ''}">
-        <h3>Results: ${item.name} (${getCategoryName(result.categoryId)})</h3>
-        <table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Position</th><th data-sortable="true" data-column-index="2">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Mark</th><th data-sortable="true" data-column-index="5">Grade</th></tr></thead><tbody>`;
+        <h3 class="mb-4 font-bold text-xl">Results: ${item.name} (${getCategoryName(result.categoryId)})</h3>
+        <table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Position</th><th data-sortable="true" data-column-index="2" class="no-wrap">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Mark</th><th data-sortable="true" data-column-index="5">Grade</th></tr></thead><tbody>`;
       result.winners.sort((a,b) => a.position - b.position).forEach((winner, winnerIndex) => {
         const p = getParticipant(winner.participantId);
         const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
         const grade = gradeConfig.find(g => g.id === winner.gradeId);
-        html += `<tr><td>${winnerIndex + 1}</td><td>${winner.position}</td><td style="white-space: nowrap;">${p?.name || 'N/A'}</td><td>${getTeamName(p?.teamId || '')}</td><td>${winner.mark}</td><td>${grade?.name || '-'}</td></tr>`;
+        html += `<tr><td>${winnerIndex + 1}</td><td>${winner.position}</td><td class="no-wrap">${p?.name || 'N/A'}</td><td>${getTeamName(p?.teamId || '')}</td><td>${winner.mark}</td><td>${grade?.name || '-'}</td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    });
+    return html;
+  }
+
+  const generateResultsContinuous = (filters: ReportFilters) => {
+    let html = `${getStyles()}`;
+    const filteredResults = getFilteredResults(filters);
+
+    if (filteredResults.length === 0) return `${getStyles()}<p>No declared results match the selected filters.</p>`;
+
+    html += `<h3>Declared Results Summary</h3>`;
+    filteredResults.forEach((result) => {
+      const item = state.items.find(i => i.id === result.itemId);
+      if (!item) return;
+      html += `<div class="mb-6">
+        <h4 class="font-bold text-lg mb-2">${item.name} (${getCategoryName(result.categoryId)})</h4>
+        <table><thead><tr><th data-sortable="false">Sl.No</th><th data-sortable="true" data-column-index="1">Position</th><th data-sortable="true" data-column-index="2" class="no-wrap">Name</th><th data-sortable="true" data-column-index="3">Team</th><th data-sortable="true" data-column-index="4">Mark</th><th data-sortable="true" data-column-index="5">Grade</th></tr></thead><tbody>`;
+      result.winners.sort((a,b) => a.position - b.position).forEach((winner, winnerIndex) => {
+        const p = getParticipant(winner.participantId);
+        const gradeConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
+        const grade = gradeConfig.find(g => g.id === winner.gradeId);
+        html += `<tr><td>${winnerIndex + 1}</td><td>${winner.position}</td><td class="no-wrap">${p?.name || 'N/A'}</td><td>${getTeamName(p?.teamId || '')}</td><td>${winner.mark}</td><td>${grade?.name || '-'}</td></tr>`;
       });
       html += `</tbody></table></div>`;
     });
@@ -380,7 +473,7 @@ const ReportsPage: React.FC = () => {
                 <tr>
                     <th data-sortable="false">Sl.No</th>
                     <th data-sortable="true" data-column-index="1">Chest No.</th>
-                    <th data-sortable="true" data-column-index="2">Name</th>
+                    <th data-sortable="true" data-column-index="2" class="no-wrap">Name</th>
                     <th data-sortable="true" data-column-index="3">Code Letter</th>
                     <th data-sortable="false">Signature</th>
                 </tr>
@@ -394,7 +487,7 @@ const ReportsPage: React.FC = () => {
                 html += `<tr>
                     <td>${pIndex + 1}</td>
                     <td>${p.chestNumber}</td>
-                    <td style="white-space: nowrap;">${p.name}</td>
+                    <td class="no-wrap">${p.name}</td>
                     <td>${tabulationEntry?.codeLetter || ''}</td>
                     <td style="width: 200px;"></td>
                 </tr>`;
@@ -414,9 +507,9 @@ const ReportsPage: React.FC = () => {
         <thead>
             <tr>
                 <th data-sortable="false">Sl.No</th>
-                <th data-sortable="true" data-column-index="1">Item</th>
+                <th data-sortable="true" data-column-index="1" class="no-wrap">Item</th>
                 <th data-sortable="true" data-column-index="2">Chest No.</th>
-                <th data-sortable="true" data-column-index="3">Name</th>
+                <th data-sortable="true" data-column-index="3" class="no-wrap">Name</th>
                 <th data-sortable="true" data-column-index="4">Code Letter</th>
                 <th data-sortable="false">Signature</th>
             </tr>
@@ -435,9 +528,9 @@ const ReportsPage: React.FC = () => {
             const tabulationEntry = state.tabulation.find(t => t.itemId === item.id && t.participantId === p.id);
             html += `<tr>
                 <td>${overallIndex}</td>
-                <td style="white-space: nowrap;">${item.name}</td>
+                <td class="no-wrap">${item.name}</td>
                 <td>${p.chestNumber}</td>
-                <td style="white-space: nowrap;">${p.name}</td>
+                <td class="no-wrap">${p.name}</td>
                 <td>${tabulationEntry?.codeLetter || ''}</td>
                 <td style="width: 200px;"></td>
             </tr>`;
@@ -449,12 +542,13 @@ const ReportsPage: React.FC = () => {
   };
   
   const reports = [
-    { id: 'participants', name: 'All Participants List', generator: generateParticipantsList, isSearchable: true },
-    { id: 'items', name: 'All Items List', generator: generateItemsList, isSearchable: true },
-    { id: 'item_participants_paginated', name: 'Item-wise Participants (Paginated)', generator: generateItemParticipantsPaginated, isSearchable: true },
-    { id: 'item_participants_continuous', name: 'Item-wise Participants (Continuous)', generator: generateItemParticipantsContinuous, isSearchable: true },
-    { id: 'schedule', name: 'Full Schedule', generator: generateSchedule, isSearchable: true },
-    { id: 'results', name: 'Item-wise Results', generator: generateResults, isSearchable: true },
+    { id: 'participants', name: 'All Participants List', generator: generateParticipantsList, isSearchable: true, count: reportCounts.participants },
+    { id: 'items', name: 'All Items List', generator: generateItemsList, isSearchable: true, count: reportCounts.items },
+    { id: 'item_participants_paginated', name: 'Item-wise Participants (Paginated)', generator: generateItemParticipantsPaginated, isSearchable: true, count: reportCounts.item_participants },
+    { id: 'item_participants_continuous', name: 'Item-wise Participants (Continuous)', generator: generateItemParticipantsContinuous, isSearchable: true, count: reportCounts.item_participants },
+    { id: 'schedule', name: 'Full Schedule', generator: generateSchedule, isSearchable: true, count: reportCounts.schedule },
+    { id: 'results_paginated', name: 'Declared Results (Paginated)', generator: generateResultsPaginated, isSearchable: true, count: reportCounts.results },
+    { id: 'results_continuous', name: 'Declared Results (Continuous)', generator: generateResultsContinuous, isSearchable: true, count: reportCounts.results },
   ];
 
   const handleGenerateReport = (report: typeof reports[0]) => {
@@ -462,7 +556,7 @@ const ReportsPage: React.FC = () => {
     setReportContent({ title: report.name, content, isSearchable: report.isSearchable });
   };
   
-  const inputClasses = "block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+  const inputClasses = "block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
 
   return (
     <div className="space-y-6">
@@ -493,9 +587,14 @@ const ReportsPage: React.FC = () => {
             <button
               key={report.id}
               onClick={() => handleGenerateReport(report)}
-              className="p-6 text-left bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="p-4 text-left bg-zinc-100 dark:bg-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <h3 className="font-semibold text-zinc-800 dark:text-zinc-100">{report.name}</h3>
+              <div className="flex justify-between items-start">
+                <h3 className="font-semibold text-zinc-800 dark:text-zinc-100 mr-2">{report.name}</h3>
+                {report.count > 0 && (
+                    <span className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 text-xs font-bold px-2.5 py-1 rounded-full">{report.count}</span>
+                )}
+              </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Click to generate and view this report.</p>
             </button>
           ))}

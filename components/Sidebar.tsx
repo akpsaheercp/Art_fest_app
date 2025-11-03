@@ -50,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
         className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ease-in-out
         ${
           activeTab === tab
-            ? 'bg-teal-500 text-white shadow-md'
+            ? 'bg-indigo-500 text-white shadow-md'
             : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
         }`}
       >
@@ -58,11 +58,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
           {Icon && <Icon className="mr-3 h-5 w-5" />}
           <span>{tab}</span>
         </div>
-        {tab === TABS.TABULATION && (
-           <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full" title="3 Pending Items">
-              3
-           </span>
-        )}
       </button>
     );
   };
@@ -94,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme, toggl
             placeholder="Filter navigation..." 
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="w-full pl-9 pr-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
             aria-label="Filter sidebar navigation"
           />
         </div>

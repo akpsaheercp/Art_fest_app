@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import Card from '../components/Card';
 import { useAppState } from '../hooks/useAppState';
 import { Trophy, ArrowUpDown } from 'lucide-react';
-import { ItemType } from '../types';
+import { ItemType, ResultStatus } from '../types';
 
 const PointsPage: React.FC = () => {
     const { state } = useAppState();
@@ -26,7 +26,7 @@ const PointsPage: React.FC = () => {
         participants.forEach(p => iPoints[p.id] = 0);
 
         results.forEach(result => {
-            if (!result.declared) return;
+            if (result.status !== ResultStatus.DECLARED) return;
             const item = items.find(i => i.id === result.itemId);
             if (!item) return;
 
@@ -106,10 +106,10 @@ const PointsPage: React.FC = () => {
     };
     
     const renderSortIcon = (currentSort: { key: string, dir: string }, sortKey: string) => (
-        <ArrowUpDown size={14} className={`ml-1 inline-block transition-transform ${currentSort.key === sortKey ? 'text-teal-500' : 'text-zinc-400'} ${currentSort.key === sortKey && currentSort.dir === 'desc' ? 'rotate-180' : ''}`} />
+        <ArrowUpDown size={14} className={`ml-1 inline-block transition-transform ${currentSort.key === sortKey ? 'text-indigo-500' : 'text-zinc-400'} ${currentSort.key === sortKey && currentSort.dir === 'desc' ? 'rotate-180' : ''}`} />
     );
 
-    const inputClasses = "block w-full rounded-md border-zinc-300 bg-white dark:bg-zinc-800 dark:border-zinc-700 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500";
+    const inputClasses = "block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
     
     return (
         <div className="space-y-6">
@@ -157,7 +157,7 @@ const PointsPage: React.FC = () => {
                                                 {team.name}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{team.points}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">{team.points}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -220,7 +220,7 @@ const PointsPage: React.FC = () => {
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{index + 1}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.teamName}</td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{p.points}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">{p.points}</td>
                                 </tr>
                             ))}
                        </tbody>
