@@ -3,6 +3,11 @@ export enum ItemType {
   GROUP = 'Group',
 }
 
+export enum PerformanceType {
+  ON_STAGE = 'On Stage',
+  OFF_STAGE = 'Off Stage',
+}
+
 export enum ResultStatus {
   NOT_UPLOADED = 'Not Uploaded',
   UPLOADED = 'Uploaded',
@@ -12,50 +17,143 @@ export enum ResultStatus {
 export enum UserRole {
     MANAGER = 'Manager',
     TEAM_LEADER = 'Team Leader',
+    THIRD_PARTY = 'Third Party',
+    JUDGE = 'Judge',
+}
+
+export interface UserProfile {
+    uid: string;
+    email: string;
+    username: string;
+    role: UserRole;
+    festId: string;
+    teamId?: string; 
+    judgeId?: string;
 }
 
 export interface User {
-    id: string;
+    id: string; 
     username: string;
-    password?: string; // Optional for security when sending to client
     role: UserRole;
-    teamId?: string; // Only for Team Leaders
+    teamId?: string; 
+    judgeId?: string;
 }
 
 export interface Judge {
   id: string;
   name: string;
+  place?: string;
+  profession?: string;
+  orderIndex?: number;
+}
+
+export interface FontConfig {
+    id: string; // Mandatory ID for standalone doc
+    url: string; 
+    name: string; 
+    family: string;
+    language?: 'malayalam' | 'arabic' | 'general';
+}
+
+export interface Template {
+    id: string;
+    name: string;
+    bg?: string;
+    bgImage?: string; 
+    text?: string;
+    accent?: string;
+    border?: string;
+    description?: string;
+    isCustom?: boolean;
+    data?: any; // For flexible template structures
+}
+
+export interface Asset {
+    id: string;
+    url: string;
+    type: 'background' | 'logo' | 'other';
+    name: string;
 }
 
 export interface Settings {
   organizingTeam: string;
   heading: string;
   description: string;
-  maxItemsPerParticipant: number;
+  eventDates?: string[]; 
+  maxItemsPerParticipant: {
+    onStage: number;
+    offStage: number;
+  };
+  maxTotalItemsPerParticipant?: number | null; 
   defaultParticipantsPerItem: number;
+  instructions: { [page: string]: string };
+  generalInstructions: string;
+  autoCodeAssignment?: boolean;
+  enableFloatingNav?: boolean; 
+  mobileSidebarMode?: 'floating' | 'sticky'; 
+  lotEligibleCodes?: string[]; 
+  eventDays?: string[];
+  stages?: string[];
+  timeSlots?: string[];
+  defaultPoints: {
+    single: { first: number; second: number; third: number; };
+    group: { first: number; second: number; third: number; };
+  };
+  reportSettings: {
+    heading: string;
+    description: string;
+    header: string;
+    footer: string;
+  };
+  institutionDetails?: {
+      name: string;
+      address: string;
+      email: string;
+      contactNumber: string;
+      description?: string;
+      logoUrl?: string; 
+  };
+  branding?: {
+      typographyUrl?: string; 
+      teamLogoUrl?: string; 
+  };
 }
 
 export interface Category {
   id: string;
   name: string;
+  maxOnStage?: number;
+  maxOffStage?: number;
+  maxCombined?: number; 
+  isGeneralCategory?: boolean;
+  orderIndex?: number;
 }
 
 export interface Team {
-  id:string;
+  id: string;
   name: string;
+  orderIndex?: number;
 }
 
 export interface Item {
   id: string;
   name: string;
+  code?: string; 
+  description: string;
   categoryId: string;
   type: ItemType;
+  performanceType: PerformanceType;
   points: {
     first: number;
     second: number;
     third: number;
   };
+  gradePointsOverride?: { [gradeId: string]: number }; 
   maxParticipants: number;
+  maxGroupsPerTeam?: number; 
+  medium: string;
+  duration: number; 
+  orderIndex?: number;
 }
 
 export interface Grade {
@@ -74,15 +172,21 @@ export interface GradePointConfig {
 export interface CodeLetter {
   id: string;
   code: string;
+  type?: 'General' | 'On-Stage' | 'Off-Stage';
 }
 
 export interface Participant {
   id: string;
   chestNumber: string;
   name: string;
+  place?: string; 
   teamId: string;
   categoryId: string;
   itemIds: string[];
+  groupLeaderItemIds?: string[]; 
+  itemGroups?: { [itemId: string]: number }; 
+  groupChestNumbers?: { [itemId: string]: string }; 
+  role?: 'leader' | 'assistant';
 }
 
 export interface ScheduledEvent {
@@ -95,14 +199,14 @@ export interface ScheduledEvent {
 }
 
 export interface JudgeAssignment {
-  id: string; // Composite key: `${itemId}-${categoryId}`
+  id: string; 
   itemId: string;
   categoryId: string;
   judgeIds: string[];
 }
 
 export interface TabulationEntry {
-  id: string; // Composite key: `${itemId}-${participantId}`
+  id: string; 
   itemId: string;
   categoryId: string;
   participantId: string;
@@ -125,6 +229,13 @@ export interface Result {
     }[];
 }
 
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  snapshot?: Partial<AppState>;
+}
+
 export interface AppState {
   settings: Settings;
   categories: Category[];
@@ -139,49 +250,9 @@ export interface AppState {
   results: Result[];
   judges: Judge[];
   users: User[];
+  fonts: FontConfig[];
+  templates: Template[];
+  assets: Asset[];
   permissions: { [key in UserRole]: string[] };
+  logs?: LogEntry[];
 }
-
-export type Action =
-  | { type: 'SET_STATE'; payload: AppState }
-  | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
-  | { type: 'ADD_CATEGORY'; payload: Category }
-  | { type: 'UPDATE_CATEGORY'; payload: Category }
-  | { type: 'REORDER_CATEGORIES'; payload: Category[] }
-  | { type: 'DELETE_CATEGORY'; payload: string }
-  | { type: 'DELETE_MULTIPLE_CATEGORIES'; payload: string[] }
-  | { type: 'ADD_TEAM'; payload: Team }
-  | { type: 'UPDATE_TEAM'; payload: Team }
-  | { type: 'REORDER_TEAMS'; payload: Team[] }
-  | { type: 'DELETE_TEAM'; payload: string }
-  | { type: 'DELETE_MULTIPLE_TEAMS'; payload: string[] }
-  | { type: 'ADD_ITEM'; payload: Item }
-  | { type: 'ADD_MULTIPLE_ITEMS'; payload: Item[] }
-  | { type: 'UPDATE_ITEM'; payload: Item }
-  | { type: 'DELETE_ITEM'; payload: string }
-  | { type: 'DELETE_MULTIPLE_ITEMS'; payload: string[] }
-  | { type: 'ADD_GRADE'; payload: { itemType: 'single' | 'group', grade: Grade } }
-  | { type: 'DELETE_GRADE'; payload: { itemType: 'single' | 'group', gradeId: string } }
-  | { type: 'ADD_CODE_LETTER'; payload: CodeLetter }
-  | { type: 'UPDATE_CODE_LETTER'; payload: CodeLetter }
-  | { type: 'REORDER_CODE_LETTERS'; payload: CodeLetter[] }
-  | { type: 'DELETE_CODE_LETTER'; payload: string }
-  | { type: 'ADD_PARTICIPANT'; payload: Participant }
-  | { type: 'ADD_MULTIPLE_PARTICIPANTS'; payload: Participant[] }
-  | { type: 'UPDATE_PARTICIPANT'; payload: Participant }
-  | { type: 'DELETE_PARTICIPANT'; payload: string }
-  | { type: 'DELETE_MULTIPLE_PARTICIPANTS'; payload: string[] }
-  | { type: 'ADD_JUDGE'; payload: Judge }
-  | { type: 'UPDATE_JUDGE'; payload: Judge }
-  | { type: 'REORDER_JUDGES'; payload: Judge[] }
-  | { type: 'DELETE_JUDGE'; payload: string }
-  | { type: 'DELETE_MULTIPLE_JUDGES'; payload: string[] }
-  | { type: 'SET_SCHEDULE'; payload: ScheduledEvent[] }
-  | { type: 'UPDATE_ITEM_JUDGES'; payload: { itemId: string, categoryId: string, judgeIds: string[] } }
-  | { type: 'UPDATE_TABULATION_ENTRY'; payload: TabulationEntry }
-  | { type: 'DECLARE_RESULT'; payload: { itemId: string, categoryId: string } }
-  | { type: 'UPDATE_RESULT_STATUS'; payload: { itemId: string, categoryId: string, status: ResultStatus } }
-  | { type: 'ADD_USER'; payload: User }
-  | { type: 'UPDATE_USER'; payload: User }
-  | { type: 'DELETE_USER'; payload: string }
-  | { type: 'UPDATE_PERMISSIONS', payload: { role: UserRole, pages: string[] } };

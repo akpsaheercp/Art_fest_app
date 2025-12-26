@@ -1,5 +1,5 @@
 {
-  "name": "copy-of-art-fest-manager",
+  "name": "art-fest-manager",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,10 @@
     "react-dom": "^19.2.0",
     "react": "^19.2.0",
     "lucide-react": "^0.548.0",
-    "@google/genai": "^1.27.0"
+    "@google/genai": "^1.27.0",
+    "jszip": "^3.10.1",
+    "html2canvas": "^1.4.1",
+    "firebase": "^12.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

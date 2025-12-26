@@ -1,194 +1,252 @@
-import React, { useState, useMemo, useRef } from 'react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Award, BookOpen, Check, CheckCircle, ChevronDown, ChevronUp, Crown, Edit3, Filter, LayoutGrid, LayoutList, Layers, ListPlus, Mic, PenTool, Plus, RefreshCw, Save, Search, ShieldAlert, Sparkles, Tag, Trash2, User as UserIcon, Users as UsersIcon, X, Shield, MapPin, UserCheck, SortAsc, ClipboardList } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import Card from '../components/Card';
-import { useAppState } from '../hooks/useAppState';
-import { Participant, User, UserRole } from '../types';
-import { Plus, X, ArrowUpDown, Trash2, Upload, FileDown, CheckCircle, XCircle, FileText } from 'lucide-react';
-import ReportViewer from '../components/ReportViewer';
+import { useFirebase } from '../hooks/useFirebase';
+import { Category, Item, ItemType, Participant, PerformanceType, Settings, User, UserRole } from '../types';
 
-// --- Import CSV Modal Component ---
-interface ImportCSVModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    currentUser: User | null;
-}
+// --- VISUALIZERS & DETERMINISTIC COLORS ---
 
-const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose, currentUser }) => {
-    const { state, dispatch } = useAppState();
-    const [file, setFile] = useState<File | null>(null);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [status, setStatus] = useState<{ validParticipants: Participant[]; errors: string[] }>({ validParticipants: [], errors: [] });
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
-    const teamLeaderTeamName = isTeamLeader ? state.teams.find(t => t.id === currentUser.teamId)?.name : null;
+const getThemeColor = (str: string) => {
+    if (!str) return { bg: 'bg-zinc-100', text: 'text-zinc-600', border: 'border-zinc-200', light: 'bg-zinc-50 dark:bg-zinc-900/30', shadow: 'shadow-zinc-500/10' };
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0; 
+    }
+    const themes = [
+        { bg: 'bg-indigo-500', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800', light: 'bg-indigo-50 dark:bg-indigo-900/20', shadow: 'shadow-indigo-500/10' },
+        { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', light: 'bg-emerald-50 dark:bg-indigo-900/20', shadow: 'shadow-emerald-500/10' },
+        { bg: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800', light: 'bg-amber-50 dark:bg-amber-900/10', shadow: 'shadow-amber-500/10' },
+        { bg: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800', light: 'bg-rose-50 dark:bg-rose-900/20', shadow: 'shadow-rose-500/10' },
+        { bg: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800', light: 'bg-purple-50 dark:bg-fuchsia-900/20', shadow: 'shadow-purple-500/10' },
+        { bg: 'bg-sky-500', text: 'text-sky-600 dark:text-sky-400', border: 'border-sky-200 dark:border-sky-800', light: 'bg-sky-50 dark:bg-sky-900/20', shadow: 'shadow-sky-500/10' },
+        { bg: 'bg-teal-500', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-200 dark:border-teal-800', light: 'bg-teal-50 dark:bg-teal-900/20', shadow: 'shadow-teal-500/10' },
+        { bg: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800', light: 'bg-orange-50 dark:bg-orange-900/20', shadow: 'shadow-orange-500/10' },
+    ];
+    return themes[Math.abs(hash) % themes.length];
+};
 
+const TypeBadge = ({ type }: { type: ItemType }) => {
+    const isGroup = type === ItemType.GROUP;
+    return (
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+            isGroup 
+            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800' 
+            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800'
+        }`}>
+            {isGroup ? <UsersIcon size={10} className="mr-1.5"/> : <UserIcon size={10} className="mr-1.5"/>}
+            {type}
+        </span>
+    );
+};
 
-    const resetState = () => {
-        setFile(null);
-        setIsProcessing(false);
-        setStatus({ validParticipants: [], errors: [] });
-        if (fileInputRef.current) fileInputRef.current.value = "";
+// --- Limit Logic ---
+const checkLimits = (
+    participant: Participant, 
+    newItem: Item | null, 
+    allItems: Item[], 
+    categories: Category[], 
+    settings: Settings,
+    pendingChanges?: { [itemId: string]: boolean } 
+): string | null => {
+    let currentItemIds = [...participant.itemIds];
+    if (pendingChanges) {
+        Object.entries(pendingChanges).forEach(([id, isAdded]) => {
+            if (isAdded && !currentItemIds.includes(id)) currentItemIds.push(id);
+            if (!isAdded && currentItemIds.includes(id)) currentItemIds = currentItemIds.filter(cid => cid !== id);
+        });
+    }
+    if (newItem && !pendingChanges && !participant.itemIds.includes(newItem.id)) currentItemIds.push(newItem.id);
+    const items = currentItemIds.map(id => allItems.find(i => i.id === id)).filter((i): i is Item => !!i);
+
+    const globalOnStageCount = items.filter(i => i.performanceType === PerformanceType.ON_STAGE).length;
+    const globalOffStageCount = items.filter(i => i.performanceType === PerformanceType.OFF_STAGE).length;
+    const globalTotalCount = items.length;
+    const globalTotalLimit = settings.maxTotalItemsPerParticipant;
+    const globalOnLimit = settings.maxItemsPerParticipant.onStage;
+    const globalOffLimit = settings.maxItemsPerParticipant.offStage;
+
+    if (globalTotalLimit !== null && globalTotalLimit !== undefined && globalTotalCount > globalTotalLimit) return `Global total limit reached (${globalTotalLimit}).`;
+    if (globalOnLimit !== undefined && globalOnStageCount > globalOnLimit) return `Global On-Stage limit reached (${globalOnLimit}).`;
+    if (globalOffLimit !== undefined && globalOffStageCount > globalOffLimit) return `Global Off-Stage limit reached (${globalOffLimit}).`;
+
+    const itemsPerCategory: Record<string, {on: number, off: number, total: number}> = {};
+    items.forEach(i => {
+        if (!itemsPerCategory[i.categoryId]) itemsPerCategory[i.categoryId] = {on: 0, off: 0, total: 0};
+        itemsPerCategory[i.categoryId].total++;
+        if (i.performanceType === PerformanceType.ON_STAGE) itemsPerCategory[i.categoryId].on++;
+        else itemsPerCategory[i.categoryId].off++;
+    });
+
+    for (const catId in itemsPerCategory) {
+        const cat = categories.find(c => c.id === catId);
+        if (!cat) continue;
+        const counts = itemsPerCategory[catId];
+        if (cat.maxCombined !== undefined && cat.maxCombined !== null && counts.total > cat.maxCombined) return `${cat.name}: Combined limit reached (${cat.maxCombined}).`;
+        if (cat.maxOnStage !== undefined && cat.maxOnStage !== null && counts.on > cat.maxOnStage) return `${cat.name}: On-stage limit reached (${cat.maxOnStage}).`;
+        if (cat.maxOffStage !== undefined && cat.maxOffStage !== null && counts.off > cat.maxOffStage) return `${cat.name}: Off-stage limit reached (${cat.maxOffStage}).`;
+    }
+    return null;
+};
+
+// --- MODALS ---
+
+const ItemEnrollmentModal: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    item: Item; 
+    groupIndex: number;
+}> = ({ isOpen, onClose, item, groupIndex }) => {
+    const { state, updateMultipleParticipants, globalFilters } = useFirebase();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [newlySelectedIds, setNewlySelectedIds] = useState<Set<string>>(new Set());
+    const [idsToRemove, setIdsToRemove] = useState<Set<string>>(new Set());
+    const [leadershipChanges, setLeadershipChanges] = useState<{ [participantId: string]: boolean }>({});
+    const [pendingGroupChestNumbers, setPendingGroupChestNumbers] = useState<{ [participantId: string]: string }>({});
+
+    useEffect(() => { 
+        if (isOpen) {
+            setNewlySelectedIds(new Set()); 
+            setIdsToRemove(new Set()); 
+            setLeadershipChanges({}); 
+            setPendingGroupChestNumbers({}); 
+            setSearchQuery('');
+        }
+    }, [isOpen, item, groupIndex]);
+
+    const eligibleParticipants = useMemo(() => {
+        if (!state || !item) return [];
+        const itemCategory = state.categories.find(c => c.id === item.categoryId);
+        return state.participants.filter(p => {
+            if (globalFilters.teamId.length > 0 && !globalFilters.teamId.includes(p.teamId)) return false;
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                if (!p.name.toLowerCase().includes(query) && !p.chestNumber.toLowerCase().includes(query)) return false;
+            }
+            if (itemCategory?.isGeneralCategory) return true; 
+            return p.categoryId === item.categoryId;
+        }).sort((a,b) => {
+             const aEnrolled = a.itemIds.includes(item.id);
+             const bEnrolled = b.itemIds.includes(item.id);
+             if (aEnrolled !== bEnrolled) return aEnrolled ? -1 : 1;
+             return a.chestNumber.localeCompare(b.chestNumber, 'en', { numeric: true });
+        });
+    }, [state, item, globalFilters.teamId, searchQuery]);
+
+    const validationStatus = useMemo(() => {
+        if (!item || !state) return { isValid: true, warnings: [] };
+        const warnings: string[] = []; let isValid = true; const teamCounts: {[teamId: string]: number} = {}; const teamLeaders: {[teamId: string]: number} = {};
+        state.participants.forEach(p => {
+            const isAlreadyEnrolled = p.itemIds.includes(item.id);
+            const isNewlySelected = newlySelectedIds.has(p.id);
+            const isMarkedForRemoval = idsToRemove.has(p.id);
+            let isActive = false;
+            if (isNewlySelected) isActive = true;
+            else if (isAlreadyEnrolled) { if (isMarkedForRemoval) isActive = false; else { if (item.type === ItemType.SINGLE) isActive = true; else { if ((p.itemGroups?.[item.id] || 1) === groupIndex) isActive = true; } } }
+            if (isActive) {
+                teamCounts[p.teamId] = (teamCounts[p.teamId] || 0) + 1;
+                const isLeaderInDB = p.groupLeaderItemIds?.includes(item.id);
+                const override = leadershipChanges[p.id];
+                if (override !== undefined ? override : isLeaderInDB) teamLeaders[p.teamId] = (teamLeaders[p.teamId] || 0) + 1;
+                const error = checkLimits(p, isNewlySelected ? item : null, state.items, state.categories, state.settings);
+                if (error) { warnings.push(`${p.name}: ${error}`); if (isNewlySelected) isValid = false; }
+            }
+        });
+        Object.entries(teamCounts).forEach(([teamId, count]) => {
+            const teamName = state.teams.find(t => t.id === teamId)?.name || 'Unknown Team';
+            if (count > item.maxParticipants) { warnings.push(`${teamName}: ${count}/${item.maxParticipants} (Exceeded)`); isValid = false; }
+            if (item.type === ItemType.GROUP && count > 0) {
+                const leaderCount = teamLeaders[teamId] || 0;
+                if (leaderCount === 0) { warnings.push(`${teamName}: No leader selected.`); isValid = false; }
+                else if (leaderCount > 1) { warnings.push(`${teamName}: Multiple leaders selected (${leaderCount}).`); isValid = false; }
+            }
+        });
+        return { isValid, warnings, teamCounts };
+    }, [state, item, newlySelectedIds, groupIndex, idsToRemove, leadershipChanges]);
+
+    const handleToggleParticipant = (participantId: string, isAlreadyEnrolled: boolean, enrolledGroupIndex?: number) => {
+        if (isAlreadyEnrolled && enrolledGroupIndex && enrolledGroupIndex !== groupIndex) { alert(`Already enrolled in Group ${enrolledGroupIndex}.`); return; }
+        if (isAlreadyEnrolled) setIdsToRemove(prev => { const n = new Set(prev); if (n.has(participantId)) n.delete(participantId); else n.add(participantId); return n; });
+        else setNewlySelectedIds(prev => { const n = new Set(prev); if (n.has(participantId)) n.delete(participantId); else n.add(participantId); return n; });
     };
 
-    const handleClose = () => {
-        resetState();
+    const handleSave = async () => {
+        if (!state || !item) return; const participantsToUpdate: Participant[] = []; const processedIds = new Set<string>();
+        const allIds = new Set([...newlySelectedIds, ...idsToRemove, ...Object.keys(leadershipChanges), ...Object.keys(pendingGroupChestNumbers)]);
+        allIds.forEach(id => {
+            if (processedIds.has(id)) return; const p = state.participants.find(part => part.id === id); if (!p) return;
+            let newItemIds = [...p.itemIds]; let newItemGroups = { ...p.itemGroups };
+            if (newlySelectedIds.has(id)) { if (!newItemIds.includes(item.id)) newItemIds.push(item.id); newItemGroups[item.id] = groupIndex; }
+            else if (idsToRemove.has(id)) { newItemIds = newItemIds.filter(iid => iid !== item.id); delete newItemGroups[item.id]; }
+            let newLeaderIds = [...(p.groupLeaderItemIds || [])]; const leadershipOverride = leadershipChanges[id]; const willBeEnrolled = (p.itemIds.includes(item.id) && !idsToRemove.has(id)) || newlySelectedIds.has(id);
+            if (willBeEnrolled) { if (leadershipOverride === true) { if (!newLeaderIds.includes(item.id)) newLeaderIds.push(item.id); } else if (leadershipOverride === false) newLeaderIds = newLeaderIds.filter(lid => lid !== item.id); }
+            else newLeaderIds = newLeaderIds.filter(lid => lid !== item.id);
+            let newGroupChestNumbers = { ...(p.groupChestNumbers || {}) };
+            if (willBeEnrolled && pendingGroupChestNumbers[id] !== undefined) newGroupChestNumbers[item.id] = pendingGroupChestNumbers[id]; else if (!willBeEnrolled) delete newGroupChestNumbers[item.id];
+            participantsToUpdate.push({ ...p, itemIds: newItemIds, itemGroups: newItemGroups, groupLeaderItemIds: newLeaderIds, groupChestNumbers: newGroupChestNumbers }); processedIds.add(id);
+        });
+        if (participantsToUpdate.length > 0) await updateMultipleParticipants(participantsToUpdate);
         onClose();
     };
 
-    const handleDownloadTemplate = () => {
-        const headers = 'chestNumber,name,teamName,categoryName';
-        const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "participants_template.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (!selectedFile) return;
-
-        setFile(selectedFile);
-        setIsProcessing(true);
-        setStatus({ validParticipants: [], errors: [] });
-
-        const text = await selectedFile.text();
-        const lines = text.trim().split(/\r?\n/);
-        const headerLine = lines[0];
-        const headers = headerLine.split(',').map(h => h.trim());
-
-        const requiredHeaders = ['chestNumber', 'name', 'teamName', 'categoryName'];
-        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-
-        if (missingHeaders.length > 0) {
-            setStatus({ validParticipants: [], errors: [`Import failed. Missing required columns: ${missingHeaders.join(', ')}`] });
-            setIsProcessing(false);
-            return;
-        }
-
-        const newParticipants: Participant[] = [];
-        const errors: string[] = [];
-        const existingChestNumbers = new Set(state.participants.map(p => p.chestNumber));
-
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            const values = line.split(',').map(v => v.trim());
-            const rowData: { [key: string]: string } = {};
-            headers.forEach((header, index) => { rowData[header] = values[index] || ''; });
-
-            const { chestNumber, name, teamName, categoryName } = rowData;
-            
-            if (!chestNumber || !name || !teamName || !categoryName) {
-                errors.push(`Row ${i + 1}: Missing one or more required fields.`);
-                continue;
-            }
-            if (existingChestNumbers.has(chestNumber)) {
-                errors.push(`Row ${i + 1}: Chest number "${chestNumber}" already exists in the system or this file.`);
-                continue;
-            }
-            const team = state.teams.find(t => t.name.toLowerCase() === teamName.toLowerCase());
-            if (!team) {
-                errors.push(`Row ${i + 1}: Team "${teamName}" not found.`);
-                continue;
-            }
-            if (isTeamLeader && team.id !== currentUser.teamId) {
-                errors.push(`Row ${i + 1}: You can only import participants for your team ("${teamLeaderTeamName}"). This row specifies "${teamName}".`);
-                continue;
-            }
-            const category = state.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
-            if (!category) {
-                errors.push(`Row ${i + 1}: Category "${categoryName}" not found.`);
-                continue;
-            }
-
-            newParticipants.push({ id: `p${Date.now()}${i}`, chestNumber, name, teamId: team.id, categoryId: category.id, itemIds: [] });
-            existingChestNumbers.add(chestNumber);
-        }
-        
-        setStatus({ validParticipants: newParticipants, errors });
-        setIsProcessing(false);
-    };
-
-    const handleConfirmImport = () => {
-        if (status.validParticipants.length > 0) {
-            dispatch({ type: 'ADD_MULTIPLE_PARTICIPANTS', payload: status.validParticipants });
-            alert(`${status.validParticipants.length} participant(s) imported successfully!`);
-            handleClose();
-        }
-    };
-
-    if (!isOpen) return null;
+    if (!isOpen || !state) return null;
+    const categoryName = state.categories.find(c => c.id === item.categoryId)?.name || 'N/A';
+    const catTheme = getThemeColor(categoryName);
+    const { isValid, warnings } = validationStatus;
+    const pendingCount = newlySelectedIds.size + idsToRemove.size + Object.keys(leadershipChanges).length + Object.keys(pendingGroupChestNumbers).length;
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4" onClick={handleClose} aria-modal="true" role="dialog">
-            <div className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-                    <h3 className="text-xl font-semibold">Import Participants from CSV</h3>
-                    <button onClick={handleClose} className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Close modal"><X className="h-6 w-6" /></button>
-                </div>
-                <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-white dark:bg-[#121412] rounded-[2.5rem] shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden border border-zinc-200 dark:border-white/10" onClick={e => e.stopPropagation()}>
+                <div className={`p-7 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center shrink-0 ${catTheme.light}`}>
                     <div>
-                        <h4 className="font-medium text-zinc-800 dark:text-zinc-200">Instructions</h4>
-                        <ul className="list-disc list-inside text-sm text-zinc-600 dark:text-zinc-400 mt-1 space-y-1">
-                            <li>Your CSV file must contain the headers: <code className="bg-zinc-100 dark:bg-zinc-800 p-1 rounded text-xs">chestNumber,name,teamName,categoryName</code></li>
-                            <li>Team and Category names must match existing entries in the system.</li>
-                            <li>Chest numbers must be unique.</li>
-                        </ul>
-                        {isTeamLeader && teamLeaderTeamName && (
-                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md">
-                                Note: As a Team Leader, you can only import participants for your team, "{teamLeaderTeamName}". Ensure the <code className="bg-zinc-100 dark:bg-zinc-800 p-1 rounded text-xs">teamName</code> column matches.
-                            </p>
-                        )}
-                        <button onClick={handleDownloadTemplate} className="mt-2 flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-                            <FileDown className="h-4 w-4" /> Download Template
-                        </button>
+                        <h3 className="font-serif font-black text-2xl text-amazio-primary dark:text-white uppercase tracking-tighter leading-none mb-1">{item.name}</h3>
+                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${catTheme.text}`}>{categoryName} • Group {groupIndex}</p>
                     </div>
-                    <div className="mt-4">
-                        <label htmlFor="csv-upload" className="block text-sm font-medium mb-1">Upload File</label>
-                        <div className="flex items-center gap-2">
-                             <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 text-sm">
-                                Choose File
-                            </button>
-                            <input type="file" ref={fileInputRef} onChange={handleFileSelect} id="csv-upload" className="hidden" accept=".csv" />
-                            {file && <span className="text-sm text-zinc-600 dark:text-zinc-400">{file.name}</span>}
-                        </div>
-                    </div>
-
-                    {(isProcessing || status.validParticipants.length > 0 || status.errors.length > 0) && (
-                         <div className="mt-4 p-4 rounded-md bg-zinc-50 dark:bg-zinc-800/50 space-y-3">
-                             <h4 className="font-medium text-zinc-800 dark:text-zinc-200">Import Preview</h4>
-                             {isProcessing && <p className="text-sm text-zinc-600 dark:text-zinc-400">Processing file...</p>}
-                             {!isProcessing && status.validParticipants.length > 0 && (
-                                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                                    <CheckCircle className="h-5 w-5" />
-                                    <span>Found <strong>{status.validParticipants.length}</strong> valid participant(s) to import.</span>
-                                </div>
-                             )}
-                              {!isProcessing && status.errors.length > 0 && (
-                                <div className="text-sm text-red-600 dark:text-red-400">
-                                    <div className="flex items-center gap-2 font-medium">
-                                        <XCircle className="h-5 w-5" />
-                                        <span>Found <strong>{status.errors.length}</strong> error(s) in the file:</span>
-                                    </div>
-                                    <ul className="list-disc list-inside mt-2 ml-2 max-h-32 overflow-y-auto text-xs">
-                                        {status.errors.slice(0, 10).map((err, i) => <li key={i}>{err}</li>)}
-                                        {status.errors.length > 10 && <li>...and {status.errors.length - 10} more.</li>}
-                                    </ul>
-                                </div>
-                             )}
-                         </div>
-                    )}
+                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"><X size={24} className="text-zinc-400" /></button>
                 </div>
-                <div className="flex justify-end gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
-                    <button type="button" onClick={handleClose} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700">Close</button>
-                    <button type="button" onClick={handleConfirmImport} disabled={isProcessing || status.validParticipants.length === 0} className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:bg-indigo-500/50 disabled:cursor-not-allowed">
-                        {isProcessing ? 'Processing...' : `Confirm Import (${status.validParticipants.length})`}
-                    </button>
+
+                <div className="p-6 bg-zinc-50/50 dark:bg-black/20 flex flex-col sm:flex-row gap-4 justify-between items-center shrink-0 shadow-inner">
+                    <div className="relative w-full sm:w-80 group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                        <input type="text" placeholder="Find delegates..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border-none ring-1 ring-zinc-200 dark:ring-white/10 text-sm font-bold shadow-sm focus:ring-2 focus:ring-amazio-secondary/30 transition-all"/>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">{pendingCount} Changes Pending</div>
+                        <button onClick={handleSave} disabled={pendingCount === 0 || !isValid} className={`px-8 py-3.5 text-xs font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg transition-all flex items-center gap-2 ${pendingCount === 0 || !isValid ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400' : 'bg-amazio-primary text-white hover:scale-105 active:scale-95 shadow-amazio-primary/20'}`}><Save size={16}/> Apply Changes</button>
+                    </div>
+                </div>
+
+                <div className="flex-grow overflow-y-auto p-6 custom-scrollbar">
+                    {warnings.length > 0 && <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/10 text-rose-600 dark:text-rose-400 text-[10px] rounded-2xl border border-rose-100 dark:border-rose-900/30 space-y-1 font-black uppercase tracking-wider animate-in slide-in-from-top-2"><div className="flex items-center gap-2 mb-1"><AlertTriangle size={14}/> Validation Notices:</div>{warnings.map((w,i)=><div key={i} className="pl-5">• {w}</div>)}</div>}
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {eligibleParticipants.map(p => {
+                            const isEnrolled = p.itemIds.includes(item.id); const isActive = newlySelectedIds.has(p.id) || (isEnrolled && !idsToRemove.has(p.id));
+                            const isLeader = leadershipChanges[p.id] !== undefined ? leadershipChanges[p.id] : (isEnrolled && p.groupLeaderItemIds?.includes(item.id));
+                            const teamTheme = getThemeColor(state.teams.find(t => t.id === p.teamId)?.name || '');
+                            return (
+                                <div key={p.id} onClick={() => handleToggleParticipant(p.id, isEnrolled, p.itemGroups?.[item.id])} className={`p-4 rounded-3xl border-2 cursor-pointer flex justify-between items-start transition-all duration-300 ${isActive ? `${teamTheme.border} ${teamTheme.light} shadow-md scale-[1.01]` : 'bg-white dark:bg-[#151816] border-zinc-100 dark:border-white/5 hover:border-zinc-200'}`}>
+                                    <div className="min-w-0 pr-2">
+                                        <p className={`font-black text-sm uppercase tracking-tight truncate ${isActive ? 'text-amazio-primary dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>
+                                            {p.name} {p.place && <span className="opacity-50 font-medium text-[0.8em]">, {p.place}</span>}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded ${isActive ? teamTheme.bg + ' text-white' : 'bg-zinc-100 dark:bg-white/5 text-zinc-400'}`}>#{p.chestNumber}</span>
+                                            {isActive && <CheckCircle size={10} className={teamTheme.text} />}
+                                        </div>
+                                    </div>
+                                    {isActive && item.type === ItemType.GROUP && (
+                                        <div className="flex flex-col items-end gap-2" onClick={e => e.stopPropagation()}>
+                                            <button onClick={() => setLeadershipChanges(prev => ({ ...prev, [p.id]: !isLeader }))} className={`p-2 rounded-xl transition-all ${isLeader ? 'bg-amber-400 text-white shadow-md' : 'text-zinc-300 bg-white dark:bg-zinc-800 border'}`} title="Mark as Leader"><Crown size={14}/></button>
+                                            {isLeader && <input type="text" placeholder="ID" value={pendingGroupChestNumbers[p.id] || p.groupChestNumbers?.[item.id] || ''} onChange={(e) => setPendingGroupChestNumbers(prev => ({ ...prev, [p.id]: e.target.value }))} className="w-12 p-1 text-[10px] border border-amber-200 rounded-lg text-center font-bold"/>}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>,
@@ -196,429 +254,312 @@ const ImportCSVModal: React.FC<ImportCSVModalProps> = ({ isOpen, onClose, curren
     );
 };
 
+const ParticipantEnrollmentModal: React.FC<{ isOpen: boolean; onClose: () => void; participant: Participant; }> = ({ isOpen, onClose, participant }) => {
+    const { state, updateParticipant } = useFirebase();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set(participant.itemIds));
+    const [error, setError] = useState<string | null>(null);
+    const [filterMode, setFilterMode] = useState<'ASSIGNED' | 'ALL' | 'OWN' | 'GENERAL'>('ASSIGNED');
 
-// --- Participant Form Modal Component ---
-interface ParticipantFormModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    editingParticipant: Participant | null;
-    currentUser: User | null;
-}
+    useEffect(() => { if(isOpen) setSelectedItemIds(new Set(participant.itemIds)); setSearchQuery(''); setFilterMode('ASSIGNED'); }, [isOpen, participant]);
 
-const ParticipantFormModal: React.FC<ParticipantFormModalProps> = ({ isOpen, onClose, editingParticipant, currentUser }) => {
-    const { state, dispatch } = useAppState();
-    
-    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
-    const initialTeamId = isTeamLeader ? currentUser.teamId : '';
-
-    const initialFormState: Omit<Participant, 'id'> = {
-        chestNumber: '', name: '', teamId: initialTeamId || '', categoryId: '', itemIds: []
+    const validateSelections = (newSet: Set<string>) => {
+        if (!state) return null;
+        const tempParticipant = { ...participant, itemIds: Array.from(newSet) };
+        return checkLimits(tempParticipant, null, state.items, state.categories, state.settings);
     };
 
-    const [formData, setFormData] = useState<Omit<Participant, 'id'>>(initialFormState);
-
-    React.useEffect(() => {
-        if (editingParticipant) {
-            setFormData({
-                chestNumber: editingParticipant.chestNumber,
-                name: editingParticipant.name,
-                teamId: editingParticipant.teamId,
-                categoryId: editingParticipant.categoryId,
-                itemIds: editingParticipant.itemIds || []
-            });
-        } else {
-            setFormData(initialFormState);
-        }
-    }, [editingParticipant, isOpen, currentUser]);
-    
-    const inputClasses = "mt-1 block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed";
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        if (name === 'categoryId') {
-            setFormData({ ...formData, [name]: value, itemIds: [] });
-        } else {
-            setFormData({ ...formData, [name]: value });
-        }
-    };
-    
-    const handleItemCheckboxChange = (itemId: string) => {
-        const isSelected = formData.itemIds.includes(itemId);
-        let newItemIds = [...formData.itemIds];
-
-        if (isSelected) {
-            newItemIds = newItemIds.filter(id => id !== itemId);
-        } else {
-            if (newItemIds.length < state.settings.maxItemsPerParticipant) {
-                newItemIds.push(itemId);
-            } else {
-                alert(`A participant can be enrolled in a maximum of ${state.settings.maxItemsPerParticipant} items.`);
-            }
-        }
-        setFormData({ ...formData, itemIds: newItemIds });
+    const handleToggle = (itemId: string) => {
+        setError(null);
+        const newSet = new Set<string>(selectedItemIds);
+        if (newSet.has(itemId)) newSet.delete(itemId);
+        else newSet.add(itemId);
+        const validationError = validateSelections(newSet);
+        if (validationError) { setError(validationError); return; }
+        setSelectedItemIds(newSet);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!formData.name || !formData.teamId || !formData.categoryId || !formData.chestNumber) return;
-
-        const existingParticipantByChest = state.participants.find(p => p.chestNumber === formData.chestNumber);
-        if (existingParticipantByChest && existingParticipantByChest.id !== editingParticipant?.id) {
-            alert('A participant with this chest number already exists.');
-            return;
-        }
-        
-        if (editingParticipant) {
-            dispatch({ type: 'UPDATE_PARTICIPANT', payload: { ...formData, id: editingParticipant.id } });
-        } else {
-            dispatch({ type: 'ADD_PARTICIPANT', payload: { ...formData, id: `p${Date.now()}` } });
-        }
+    const handleSave = async () => {
+        const validationError = validateSelections(selectedItemIds);
+        if (validationError) { setError(validationError); return; }
+        await updateParticipant({ ...participant, itemIds: Array.from(selectedItemIds) });
         onClose();
     };
-    
-    const availableItems = state.items.filter(item => item.categoryId === formData.categoryId);
 
-    if (!isOpen) return null;
+    const eligibleItems = useMemo(() => {
+        if (!state) return [];
+        return state.items.filter(i => {
+            if (i.type === ItemType.GROUP) return false;
+            if (filterMode === 'ASSIGNED') return participant.itemIds.includes(i.id) && i.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const itemCat = state.categories.find(c => c.id === i.categoryId);
+            const isOwn = i.categoryId === participant.categoryId;
+            const isGeneral = itemCat?.isGeneralCategory;
+            if (!isOwn && !isGeneral) return false;
+            if (filterMode === 'OWN' && !isOwn) return false;
+            if (filterMode === 'GENERAL' && !isGeneral) return false;
+            return i.name.toLowerCase().includes(searchQuery.toLowerCase());
+        }).sort((a,b) => a.name.localeCompare(b.name));
+    }, [state, participant, searchQuery, filterMode]);
+
+    if (!isOpen || !state) return null;
+    const participantCategory = state.categories.find(c => c.id === participant.categoryId);
+    const catTheme = getThemeColor(participantCategory?.name || '');
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4" onClick={onClose} aria-modal="true" role="dialog">
-            <div className="relative w-full max-w-lg bg-white dark:bg-zinc-900 rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-                    <h3 className="text-xl font-semibold">{editingParticipant ? 'Edit Participant' : 'Add New Participant'}</h3>
-                    <button onClick={onClose} className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" aria-label="Close modal"><X className="h-6 w-6" /></button>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-white dark:bg-[#121412] rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh] overflow-hidden border border-zinc-200 dark:border-white/10" onClick={e => e.stopPropagation()}>
+                <div className={`p-7 border-b border-zinc-100 dark:border-white/5 flex justify-between items-center shrink-0 ${catTheme.light}`}>
+                    <div>
+                        <h3 className="font-serif font-black text-2xl text-amazio-primary dark:text-white uppercase tracking-tighter leading-none mb-1">{participant.name}</h3>
+                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${catTheme.text}`}>#{participant.chestNumber} • {participantCategory?.name}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"><X size={24} className="text-zinc-400" /></button>
                 </div>
-                <form onSubmit={handleSubmit}>
-                    <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                        <div>
-                            <label className="block text-sm font-medium">Chest Number</label>
-                            <input type="text" name="chestNumber" value={formData.chestNumber} onChange={handleInputChange} className={inputClasses} required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Name</label>
-                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} className={inputClasses} required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Team</label>
-                            <select name="teamId" value={formData.teamId} onChange={handleInputChange} className={inputClasses} required disabled={isTeamLeader}>
-                                <option value="">Select Team</option>
-                                {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Category</label>
-                            <select name="categoryId" value={formData.categoryId} onChange={handleInputChange} className={inputClasses} required>
-                                <option value="">Select Category</option>
-                                {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium">Items ({formData.itemIds.length} / {state.settings.maxItemsPerParticipant})</label>
-                            <div className="mt-1 p-2 border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-md h-40 overflow-y-auto space-y-2">
-                                {formData.categoryId ? (
-                                    availableItems.length > 0 ? (
-                                        availableItems.map(item => {
-                                            const isChecked = formData.itemIds.includes(item.id);
-                                            const isDisabled = !isChecked && formData.itemIds.length >= state.settings.maxItemsPerParticipant;
-                                            return (
-                                                <div key={item.id} className="flex items-center">
-                                                    <input
-                                                        id={`item-modal-${item.id}`}
-                                                        type="checkbox"
-                                                        checked={isChecked}
-                                                        disabled={isDisabled}
-                                                        onChange={() => handleItemCheckboxChange(item.id)}
-                                                        className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
-                                                    />
-                                                    <label
-                                                        htmlFor={`item-modal-${item.id}`}
-                                                        className={`ml-2 block text-sm ${isDisabled ? 'text-zinc-400 dark:text-zinc-500 cursor-not-allowed' : 'text-zinc-700 dark:text-zinc-300 cursor-pointer'}`}
-                                                    >
-                                                        {item.name}
-                                                    </label>
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">No items available for this category.</p>
-                                    )
-                                ) : (
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Please select a category first.</p>
-                                )}
-                            </div>
-                        </div>
+                <div className="p-6 border-b border-zinc-100 dark:border-white/5 bg-white dark:bg-zinc-900/50 shrink-0 space-y-4 shadow-inner">
+                    <div className="flex gap-3">
+                        <div className="relative flex-grow"><Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" /><input type="text" placeholder="Find items..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-2xl bg-zinc-50 dark:bg-black/40 border-none ring-1 ring-zinc-200 dark:ring-white/10 text-sm font-bold transition-all shadow-inner"/></div>
+                        <div className="relative"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value as any)} className="appearance-none pl-4 pr-10 py-3 rounded-2xl bg-zinc-50 dark:bg-black/40 border-none ring-1 ring-zinc-200 dark:ring-white/10 text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-300 h-full"><option value="ASSIGNED">Assigned Only</option><option value="ALL">All Eligible</option><option value="OWN">Own</option><option value="GENERAL">General</option></select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" /></div>
                     </div>
-                    <div className="flex justify-end gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700 rounded-b-lg">
-                        <button type="button" onClick={onClose} className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700">Cancel</button>
-                        <button type="submit" className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600">{editingParticipant ? 'Update Participant' : 'Add Participant'}</button>
+                    {error && <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-wider border border-rose-100 dark:border-rose-900/30 shadow-sm flex items-center gap-2"><AlertTriangle size={14}/> {error}</div>}
+                </div>
+                <div className="flex-grow overflow-y-auto p-4 custom-scrollbar bg-zinc-50/50 dark:bg-black/20">
+                    <div className="grid grid-cols-1 gap-2">
+                        {eligibleItems.map(item => {
+                            const isSelected = selectedItemIds.has(item.id);
+                            const itemTheme = getThemeColor(state.categories.find(c => c.id === item.categoryId)?.name || '');
+                            return (
+                                <div key={item.id} onClick={() => handleToggle(item.id)} className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-300 ${isSelected ? `${itemTheme.border} ${itemTheme.light} shadow-md scale-[1.01]` : 'bg-white dark:bg-white/[0.02] border-transparent hover:border-zinc-200 dark:hover:border-zinc-800'}`}>
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors shrink-0 ${isSelected ? `${itemTheme.bg} border-transparent` : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900'}`}>{isSelected && <Check size={16} className="text-white" strokeWidth={4} />}</div>
+                                        <div className="min-w-0"><div className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? itemTheme.text : 'text-amazio-primary dark:text-zinc-200'}`}>{item.name}</div><div className="flex items-center gap-2 mt-1"><span className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">{item.type}</span><span className="text-zinc-400 opacity-40">•</span><span className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">{item.performanceType}</span></div></div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                </form>
+                </div>
+                <div className="p-6 border-t border-zinc-100 dark:border-white/5 bg-white dark:bg-zinc-900 flex justify-between items-center shrink-0"><div className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">{selectedItemIds.size} Enrolled</div><button onClick={handleSave} className="px-8 py-4 bg-amazio-primary text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-amazio-primary/20 transition-all hover:scale-105 active:scale-95">Apply Registry</button></div>
             </div>
         </div>,
         document.body
     );
 };
 
+// --- SECTION VIEWS ---
 
-const DataEntryPage: React.FC<{ currentUser: User | null }> = ({ currentUser }) => {
-    const { state, dispatch } = useAppState();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-    const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
-    const [selected, setSelected] = useState<Set<string>>(new Set());
-    const [filters, setFilters] = useState({ searchTerm: '', teamId: '', categoryId: '' });
-    const [sort, setSort] = useState<{ key: keyof Participant; dir: 'asc' | 'desc' }>({ key: 'chestNumber', dir: 'asc' });
-    const [idCardContent, setIdCardContent] = useState<{ title: string; content: string } | null>(null);
-    
-    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
+const ItemEntryView: React.FC<{ currentUser: User | null }> = ({ currentUser }) => {
+    const { state, globalSearchTerm, globalFilters } = useFirebase();
+    const [selectedItemAndGroup, setSelectedItemAndGroup] = useState<{item: Item, groupIndex: number} | null>(null);
+    const [sortBy, setSortBy] = useState<'name' | 'category' | 'type'>('name');
 
-    const filteredAndSortedParticipants = useMemo(() => {
-        return state.participants
-            .filter(p => {
-                const teamLeaderMatch = isTeamLeader ? p.teamId === currentUser.teamId : true;
-                if (!teamLeaderMatch) return false;
-
-                const searchMatch = p.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) || p.chestNumber.includes(filters.searchTerm);
-                const teamMatch = filters.teamId ? p.teamId === filters.teamId : true;
-                const categoryMatch = filters.categoryId ? p.categoryId === filters.categoryId : true;
-                return searchMatch && teamMatch && categoryMatch;
-            })
-            .sort((a, b) => {
-                const valA = a[sort.key];
-                const valB = b[sort.key];
-                if (valA < valB) return sort.dir === 'asc' ? -1 : 1;
-                if (valA > valB) return sort.dir === 'asc' ? 1 : -1;
-                return 0;
-            });
-    }, [state.participants, filters, sort, currentUser, isTeamLeader]);
-
-    const handleSort = (key: keyof Participant) => {
-        setSort(prev => ({
-            key,
-            dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc'
-        }));
-    };
-    
-    const handleSelect = (id: string) => {
-        setSelected(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(id)) newSet.delete(id);
-            else newSet.add(id);
-            return newSet;
-        });
-    };
-
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            setSelected(new Set(filteredAndSortedParticipants.map(p => p.id)));
-        } else {
-            setSelected(new Set());
-        }
-    };
-    
-    const handleDeleteSelected = () => {
-        if (window.confirm(`Are you sure you want to delete ${selected.size} participant(s)?`)) {
-            dispatch({ type: 'DELETE_MULTIPLE_PARTICIPANTS', payload: Array.from(selected) });
-            setSelected(new Set());
-        }
-    };
-
-    const handleEdit = (participant: Participant) => {
-        setEditingParticipant(participant);
-        setIsModalOpen(true);
-    };
-
-    const handleAddNew = () => {
-        setEditingParticipant(null);
-        setIsModalOpen(true);
-    };
-
-    const generateIdCardsHtml = (): string => {
-        const selectedParticipants = state.participants.filter(p => selected.has(p.id));
-
-        const styles = `
-        <style>
-            .id-card-container {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 15px;
-            }
-            .id-card {
-                border: 1px solid #ccc;
-                border-radius: 12px;
-                padding: 16px;
-                display: flex;
-                flex-direction: column;
-                box-sizing: border-box;
-                background: #fff;
-                page-break-inside: avoid;
-            }
-            .card-header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px; }
-            .fest-name { font-weight: bold; font-size: 16px; color: #4f46e5; }
-            .card-body { text-align: center; }
-            .participant-photo { width: 70px; height: 70px; border-radius: 50%; background: #e0e7ff; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; }
-            .participant-photo svg { width: 40px; height: 40px; color: #4f46e5; }
-            .participant-name { font-weight: bold; font-size: 18px; margin-bottom: 4px; }
-            .participant-details { font-size: 12px; color: #555; line-height: 1.4; }
-            .card-footer { margin-top: auto; }
-            .events-table { width: 100%; font-size: 10px; border-collapse: collapse; margin-top: 12px;}
-            .events-table th, .events-table td { border: 1px solid #ddd; padding: 4px; text-align: left; }
-            .events-table th { background: #f2f2f2; font-weight: 600; }
-        </style>
-        `;
-        
-        const userIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-
-        let cardsHtml = '';
-        selectedParticipants.forEach((p, index) => {
-            const team = state.teams.find(t => t.id === p.teamId);
-            const category = state.categories.find(c => c.id === p.categoryId);
-
-            let eventsHtml = '<table class="events-table"><thead><tr><th>Item</th><th>Date/Time</th><th>Stage</th></tr></thead><tbody>';
-            p.itemIds.forEach(itemId => {
-                const item = state.items.find(i => i.id === itemId);
-                const schedule = state.schedule.find(s => s.itemId === itemId && s.categoryId === p.categoryId);
-                eventsHtml += `
-                    <tr>
-                        <td>${item?.name || 'N/A'}</td>
-                        <td>${schedule ? `${schedule.date}, ${schedule.time}` : 'N/A'}</td>
-                        <td>${schedule?.stage || 'N/A'}</td>
-                    </tr>
-                `;
-            });
-            eventsHtml += '</tbody></table>';
-
-            cardsHtml += `
-            <div class="id-card">
-                <div class="card-header">
-                    <div class="fest-name">${state.settings.heading}</div>
-                </div>
-                <div class="card-body">
-                    <div class="participant-photo">${userIconSvg}</div>
-                    <div class="participant-name">${p.name}</div>
-                    <div class="participant-details">
-                        <strong>Chest No:</strong> ${p.chestNumber} <br />
-                        <strong>Team:</strong> ${team?.name || 'N/A'} <br />
-                        <strong>Category:</strong> ${category?.name || 'N/A'}
-                    </div>
-                </div>
-                <div class="card-footer">
-                    ${p.itemIds.length > 0 ? eventsHtml : ''}
-                </div>
-            </div>
-            `;
+    const displayItems = useMemo(() => {
+        if (!state) return [];
+        let items = state.items.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(globalSearchTerm.toLowerCase());
+            const matchesCat = globalFilters.categoryId.length > 0 ? globalFilters.categoryId.includes(item.categoryId) : true;
+            const matchesPerf = globalFilters.performanceType.length > 0 ? globalFilters.performanceType.includes(item.performanceType) : true;
+            return matchesSearch && matchesCat && matchesPerf;
         });
 
-        return `${styles}<div class="id-card-container">${cardsHtml}</div>`;
-    };
+        const list: { item: Item, groupIndex: number, key: string, displayName: string, categoryName: string, enrollCount: number }[] = [];
+        items.forEach(item => {
+            const maxGroups = item.type === ItemType.GROUP ? (item.maxGroupsPerTeam || 1) : 1;
+            const categoryName = state.categories.find(c => c.id === item.categoryId)?.name || 'N/A';
+            const enrolledParticipants = state.participants.filter(p => p.itemIds.includes(item.id));
+            for (let i = 1; i <= maxGroups; i++) {
+                const groupParticipants = enrolledParticipants.filter(p => (p.itemGroups?.[item.id] || 1) === i);
+                list.push({ item, groupIndex: i, key: `${item.id}_${i}`, displayName: maxGroups > 1 ? `${item.name} (G${i})` : item.name, categoryName, enrollCount: groupParticipants.length });
+            }
+        });
 
-    const handlePrintIdCards = () => {
-        const html = generateIdCardsHtml();
-        setIdCardContent({ title: 'Participant ID Cards', content: html });
-    };
+        return list.sort((a, b) => {
+            if (sortBy === 'name') return a.displayName.localeCompare(b.displayName);
+            if (sortBy === 'category') return a.categoryName.localeCompare(b.categoryName);
+            if (sortBy === 'type') return a.item.type.localeCompare(b.item.type);
+            return 0;
+        });
+    }, [state, globalSearchTerm, globalFilters, sortBy]);
 
-    const inputClasses = "block w-full rounded-md border-zinc-300 bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-600 px-3 py-2 text-sm shadow-sm placeholder-zinc-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500";
-    
-    const renderSortIcon = (key: keyof Participant) => (
-        <ArrowUpDown size={14} className={`ml-1 inline-block transition-transform ${sort.key === key ? 'text-indigo-500' : 'text-zinc-400'} ${sort.key === key && sort.dir === 'desc' ? 'rotate-180' : ''}`} />
-    );
+    if (!state) return null;
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap justify-between items-center gap-4">
-                <h2 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">Participants Management</h2>
-                 <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-3 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 text-sm">
-                        <Upload className="h-4 w-4" />
-                        <span>Import CSV</span>
-                    </button>
-                    <button onClick={handleAddNew} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 shadow-sm transition-colors">
-                        <Plus className="h-5 w-5" />
-                        <span>Add Participant</span>
-                    </button>
+        <Card title="By Items" action={
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-black/40 rounded-xl border border-amazio-primary/5 dark:border-white/10 shadow-inner">
+                    <ClipboardList size={14} className="text-zinc-400" />
+                    <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-300 uppercase tracking-widest">{displayItems.length} Items</span>
+                </div>
+            </div>
+        }>
+            <div className="space-y-6">
+                <div className="flex items-center gap-2 overflow-x-auto w-full pb-2 no-scrollbar border-b border-zinc-50 dark:border-zinc-800">
+                    <div className="flex items-center gap-2 px-2 shrink-0">
+                        <SortAsc size={14} className="text-zinc-400" />
+                        <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Sort:</span>
+                    </div>
+                    {[
+                        { id: 'name', label: 'Title' },
+                        { id: 'category', label: 'Category' },
+                        { id: 'type', label: 'Type' }
+                    ].map(opt => (
+                        <button key={opt.id} onClick={() => setSortBy(opt.id as any)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all shrink-0 ${sortBy === opt.id ? 'bg-amazio-primary text-white shadow-md' : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-100 border border-zinc-200 dark:border-zinc-700'}`}>{opt.label}</button>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {displayItems.map(di => {
+                        const catTheme = getThemeColor(di.categoryName);
+                        return (
+                            <div key={di.key} className="p-5 rounded-[2rem] border border-zinc-100 dark:border-white/5 bg-white dark:bg-[#151816] transition-all group flex flex-col justify-between">
+                                <div>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${catTheme.border} ${catTheme.light} ${catTheme.text}`}>{di.categoryName}</div>
+                                        <button 
+                                            onClick={() => setSelectedItemAndGroup({item: di.item, groupIndex: di.groupIndex})} 
+                                            className="p-2 rounded-lg bg-zinc-50 dark:bg-white/5 text-zinc-400 hover:text-amazio-secondary hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
+                                        >
+                                            <Edit3 size={18} />
+                                        </button>
+                                    </div>
+                                    <h4 className="font-black text-amazio-primary dark:text-white text-lg uppercase tracking-tight truncate leading-tight mb-2">{di.displayName}</h4>
+                                    <div className="flex items-center gap-3"><TypeBadge type={di.item.type} /><span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">{di.item.performanceType}</span></div>
+                                </div>
+                                <div className="mt-5 pt-4 border-t border-zinc-50 dark:border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${di.enrollCount > 0 ? 'bg-indigo-500 shadow-glow' : 'bg-zinc-200'}`}></span>
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{di.enrollCount} Assigned</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            {selectedItemAndGroup && (
+                <ItemEnrollmentModal 
+                    isOpen={!!selectedItemAndGroup} 
+                    onClose={() => setSelectedItemAndGroup(null)} 
+                    item={selectedItemAndGroup.item}
+                    groupIndex={selectedItemAndGroup.groupIndex}
+                />
+            )}
+        </Card>
+    );
+};
+
+const ParticipantEntryView: React.FC<{ currentUser: User | null }> = ({ currentUser }) => {
+    const { state, globalSearchTerm, globalFilters } = useFirebase();
+    const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+    const [sortBy, setSortBy] = useState<'chest' | 'name' | 'category' | 'team'>('chest');
+
+    const filteredParticipants = useMemo(() => {
+        if (!state) return [];
+        let list = state.participants.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(globalSearchTerm.toLowerCase()) || 
+                                 p.chestNumber.toLowerCase().includes(globalSearchTerm.toLowerCase());
+            const matchesTeam = globalFilters.teamId.length > 0 ? globalFilters.teamId.includes(p.teamId) : true;
+            const matchesCategory = globalFilters.categoryId.length > 0 ? globalFilters.categoryId.includes(p.categoryId) : true;
+            return matchesSearch && matchesTeam && matchesCategory;
+        });
+
+        return list.sort((a, b) => {
+            if (sortBy === 'chest') return a.chestNumber.localeCompare(b.chestNumber, undefined, { numeric: true });
+            if (sortBy === 'name') return a.name.localeCompare(b.name);
+            if (sortBy === 'category') {
+                const catA = state.categories.find(c => c.id === a.categoryId)?.name || '';
+                const catB = state.categories.find(c => c.id === b.categoryId)?.name || '';
+                return catA.localeCompare(catB);
+            }
+            if (sortBy === 'team') {
+                const teamA = state.teams.find(t => t.id === a.teamId)?.name || '';
+                const teamB = state.teams.find(t => t.id === b.teamId)?.name || '';
+                return teamA.localeCompare(teamB);
+            }
+            return 0;
+        });
+    }, [state, globalSearchTerm, globalFilters, sortBy]);
+
+    if (!state) return null;
+
+    return (
+        <Card title="By Participants" action={
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-black/40 rounded-xl border border-amazio-primary/5 dark:border-white/10 shadow-inner">
+                    <UsersIcon size={14} className="text-zinc-400" />
+                    <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-300 uppercase tracking-widest">{state.participants.length} Census</span>
+                </div>
+            </div>
+        }>
+            <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pb-2 border-b border-zinc-50 dark:border-zinc-800">
+                    <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 no-scrollbar">
+                        <div className="flex items-center gap-2 px-2 shrink-0">
+                            <SortAsc size={14} className="text-zinc-400" />
+                            <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Sort:</span>
+                        </div>
+                        {[
+                            { id: 'chest', label: 'ID/Reg#' },
+                            { id: 'name', label: 'Name' },
+                            { id: 'category', label: 'Category' },
+                            { id: 'team', label: 'Team' }
+                        ].map(opt => (
+                            <button key={opt.id} onClick={() => setSortBy(opt.id as any)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all shrink-0 ${sortBy === opt.id ? 'bg-amazio-primary text-white shadow-md' : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700'}`}>{opt.label}</button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredParticipants.map(p => {
+                        const teamName = state.teams.find(t => t.id === p.teamId)?.name || 'N/A';
+                        const categoryName = state.categories.find(c => c.id === p.categoryId)?.name || 'N/A';
+                        const teamTheme = getThemeColor(teamName);
+                        return (
+                            <div key={p.id} className="p-5 rounded-[2rem] border border-zinc-100 dark:border-white/5 bg-white dark:bg-[#151816] hover:border-amazio-secondary/30 hover:shadow-lg transition-all group">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${teamTheme.bg} text-white`}>#{p.chestNumber}</div>
+                                    <button 
+                                        onClick={() => setSelectedParticipant(p)}
+                                        className="p-2 rounded-lg bg-zinc-50 dark:bg-white/5 text-zinc-400 group-hover:text-amazio-secondary transition-colors"
+                                    >
+                                        <ListPlus size={18} />
+                                    </button>
+                                </div>
+                                <div className="mb-1"><h4 className="font-black text-amazio-primary dark:text-white text-lg uppercase tracking-tight truncate leading-tight">{p.name}</h4>{p.place && <div className="flex items-center gap-1 mt-0.5 text-zinc-500 dark:text-zinc-400"><MapPin size={10} className="shrink-0" /><span className="text-[10px] font-bold uppercase tracking-widest truncate italic">{p.place}</span></div>}</div>
+                                <div className="flex flex-wrap gap-2 mt-3"><span className={`text-[10px] font-bold uppercase tracking-wide ${teamTheme.text}`}>{teamName}</span><span className="text-zinc-300">•</span><span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">{categoryName}</span></div>
+                                <div className="mt-4 pt-4 border-t border-zinc-50 dark:border-white/5 flex items-center justify-between"><div className="flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${p.itemIds.length > 0 ? 'bg-emerald-500 shadow-glow' : 'bg-zinc-200'}`}></span><span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{p.itemIds.length} Items</span></div></div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            {selectedParticipant && <ParticipantEnrollmentModal isOpen={!!selectedParticipant} onClose={() => setSelectedParticipant(null)} participant={selectedParticipant} />}
+        </Card>
+    );
+};
+
+// --- PAGE WRAPPER ---
+
+const DataEntryPage: React.FC<{ currentUser: User | null }> = ({ currentUser }) => {
+    const { dataEntryView: view } = useFirebase();
+
+    return (
+        <div className="space-y-6 md:space-y-10 pb-24 animate-in fade-in duration-700 relative">
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+                <div>
+                    <h2 className="text-5xl font-black font-serif text-amazio-primary dark:text-white tracking-tighter uppercase leading-none">Data Entry</h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-3 font-medium text-lg italic">Manage registry and enrollments.</p>
                 </div>
             </div>
 
-            <Card title="Participants List" className="lg:col-span-2">
-                <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border-b dark:border-zinc-700">
-                    <input type="text" placeholder="Search name or chest no..." value={filters.searchTerm} onChange={e => setFilters({...filters, searchTerm: e.target.value})} className={inputClasses}/>
-                    {!isTeamLeader && (
-                        <select value={filters.teamId} onChange={e => setFilters({...filters, teamId: e.target.value})} className={inputClasses}>
-                            <option value="">All Teams</option>
-                            {state.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
-                    )}
-                    <select value={filters.categoryId} onChange={e => setFilters({...filters, categoryId: e.target.value})} className={inputClasses}>
-                        <option value="">All Categories</option>
-                        {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+            {view === 'ITEMS' ? (
+                <div className="animate-in slide-in-from-left duration-500">
+                    <ItemEntryView currentUser={currentUser} />
                 </div>
-
-                {selected.size > 0 && (
-                    <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-md flex justify-between items-center flex-wrap gap-2">
-                        <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{selected.size} participant(s) selected.</p>
-                        <div className="flex items-center gap-2">
-                            <button onClick={handlePrintIdCards} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-sky-500 text-white rounded-md hover:bg-sky-600 shadow-sm transition-colors">
-                                <FileText className="h-4 w-4" />
-                                <span>Print ID Cards</span>
-                            </button>
-                            <button onClick={handleDeleteSelected} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 shadow-sm transition-colors">
-                                <Trash2 className="h-4 w-4" />
-                                <span>Delete Selected</span>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                       <thead className="bg-zinc-50 dark:bg-zinc-800">
-                           <tr>
-                               <th className="px-4 py-3"><input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" onChange={handleSelectAll} checked={selected.size > 0 && selected.size === filteredAndSortedParticipants.length} /></th>
-                               <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"><button onClick={() => handleSort('chestNumber')} className="flex items-center">Chest No. {renderSortIcon('chestNumber')}</button></th>
-                               <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"><button onClick={() => handleSort('name')} className="flex items-center">Name {renderSortIcon('name')}</button></th>
-                               <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Team</th>
-                               <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Category</th>
-                               <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Items</th>
-                               <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Actions</th>
-                           </tr>
-                       </thead>
-                       <tbody className="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800">
-                            {filteredAndSortedParticipants.map(p => (
-                                <tr key={p.id} className={`${selected.has(p.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
-                                    <td className="px-4 py-4"><input type="checkbox" className="h-4 w-4 rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500" checked={selected.has(p.id)} onChange={() => handleSelect(p.id)} /></td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.chestNumber}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{state.teams.find(t=>t.id === p.teamId)?.name}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{state.categories.find(c=>c.id === p.categoryId)?.name}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">{p.itemIds.length}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm space-x-2">
-                                        <button onClick={() => handleEdit(p)} className="font-medium text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400">Edit</button>
-                                    </td>
-                                </tr>
-                            ))}
-                       </tbody>
-                    </table>
+            ) : (
+                <div className="animate-in slide-in-from-right duration-500">
+                    <ParticipantEntryView currentUser={currentUser} />
                 </div>
-            </Card>
-
-             <ParticipantFormModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                editingParticipant={editingParticipant}
-                currentUser={currentUser}
-            />
-             <ImportCSVModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                currentUser={currentUser}
-            />
-            <ReportViewer
-                isOpen={!!idCardContent}
-                onClose={() => setIdCardContent(null)}
-                title={idCardContent?.title || ''}
-                content={idCardContent?.content || ''}
-                isSearchable={false}
-            />
+            )}
         </div>
     );
 };

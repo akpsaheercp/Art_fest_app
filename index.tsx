@@ -2,7 +2,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { AppProvider } from './store/AppContext';
+import { FirebaseProvider } from './store/FirebaseContext';
+import { TimerProvider } from './store/TimerContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,8 +13,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AppProvider>
-      <App />
-    </AppProvider>
+    <FirebaseProvider>
+        <TimerProvider>
+            <App />
+        </TimerProvider>
+    </FirebaseProvider>
   </React.StrictMode>
 );
