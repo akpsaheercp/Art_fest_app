@@ -11,7 +11,7 @@ import {
     BarChart2, Home, Search, AlertTriangle, ShieldCheck, Download, History, Undo2,
     Sparkles, RefreshCw
 } from 'lucide-react';
-import { User, UserRole, FontConfig, LogEntry } from '../../types';
+import { User, UserRole, FontConfig, AppState } from '../../types';
 import { TABS, TAB_DISPLAY_NAMES } from '../../constants';
 
 // --- Helper Component: Image Upload ---
@@ -65,7 +65,6 @@ const LanguageFontCard = ({ title, subtitle, language, currentFont, previewText,
     const [tempName, setTempName] = useState(currentFont?.name || '');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Update tempName when currentFont changes externally
     useEffect(() => {
         if (!tempBase64) setTempName(currentFont?.name || '');
     }, [currentFont, tempBase64]);
@@ -205,36 +204,85 @@ const SectionTitle = ({ title, icon: Icon, color = 'indigo' }: { title: string, 
 };
 
 const GeneralSettings: React.FC = () => {
-    const { state, updateSettings, addUser, updateUser, deleteUser, updatePermissions, updateInstruction, addFont, deleteFont, settingsSubView: activeTab } = useFirebase();
+    const { 
+        state, updateSettings, addUser, updateUser, deleteUser, 
+        updatePermissions, updateInstruction, addFont, deleteFont, 
+        settingsSubView: activeTab, restoreState, resetFestival 
+    } = useFirebase();
+    
     const [instData, setInstData] = useState(state?.settings.institutionDetails || { name: '', address: '', email: '', contactNumber: '', description: '', logoUrl: '' });
-    const [orgData, setOrgData] = useState({ organizingTeam: state?.settings.organizingTeam || '', heading: state?.settings.heading || '', description: state?.settings.description || '', eventDates: state?.settings.eventDates || [], branding: state?.settings.branding || { typographyUrl: '', teamLogoUrl: '' } });
     const [isEditingInst, setIsEditingInst] = useState(false);
-    const [isEditingOrg, setIsEditingOrg] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const restoreInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { if (!isEditingInst && state?.settings.institutionDetails) setInstData(state.settings.institutionDetails); }, [state?.settings.institutionDetails, isEditingInst]);
-    useEffect(() => { if (!isEditingOrg && state?.settings) setOrgData({ organizingTeam: state.settings.organizingTeam, heading: state.settings.heading, description: state.settings.description, eventDates: state.settings.eventDates || [], branding: state.settings.branding || { typographyUrl: '', teamLogoUrl: '' } }); }, [state?.settings, isEditingOrg]);
+    useEffect(() => { 
+        if (!isEditingInst && state?.settings.institutionDetails) 
+            setInstData(state.settings.institutionDetails); 
+    }, [state?.settings.institutionDetails, isEditingInst]);
 
     if (!state) return null;
+
+    const handleBackup = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `art_fest_backup_${new Date().toISOString().split('T')[0]}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
+
+    const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!confirm("RESTORE DATA: This will overwrite your current festival data with the backup file. Proceed?")) {
+            e.target.value = '';
+            return;
+        }
+
+        setIsProcessing(true);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const newState = JSON.parse(event.target?.result as string) as AppState;
+                await restoreState(newState);
+                alert("Restoration complete. The app will now reload.");
+                window.location.reload();
+            } catch (err) {
+                alert("Invalid backup file.");
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+        reader.readAsText(file);
+    };
 
     const renderTabContent = () => {
         switch(activeTab) {
             case 'details':
                 return (
-                    <div className="space-y-10">
+                    <div className="space-y-10 animate-in fade-in duration-500">
                         <Card title="Institution Core" action={isEditingInst ? <button onClick={async () => { await updateSettings({ institutionDetails: instData }); setIsEditingInst(false); }} className="p-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200"><Check size={20}/></button> : <button onClick={() => setIsEditingInst(true)} className="p-2 text-zinc-400 hover:text-indigo-500"><Edit2 size={18}/></button>}>
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 space-y-6">
-                                    <input value={instData.name} onChange={e => setInstData({...instData, name: e.target.value})} disabled={!isEditingInst} className="w-full p-4 bg-zinc-50 dark:bg-black/20 border rounded-2xl font-bold" placeholder="Legal Name" />
-                                    <textarea value={instData.address} onChange={e => setInstData({...instData, address: e.target.value})} disabled={!isEditingInst} className="w-full p-4 bg-zinc-50 dark:bg-black/20 border rounded-2xl font-bold" placeholder="Address" />
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-zinc-400 ml-1 mb-1.5 block">Identity</label>
+                                        <input value={instData.name} onChange={e => setInstData({...instData, name: e.target.value})} disabled={!isEditingInst} className="w-full p-4 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold text-lg" placeholder="Legal Name" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-zinc-400 ml-1 mb-1.5 block">Location</label>
+                                        <textarea value={instData.address} onChange={e => setInstData({...instData, address: e.target.value})} disabled={!isEditingInst} className="w-full p-4 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold min-h-[120px]" placeholder="Address" />
+                                    </div>
                                 </div>
-                                <ImageUpload label="Emblem" description="Report watermark" currentValue={instData.logoUrl} onChange={v => setInstData({...instData, logoUrl: v})} disabled={!isEditingInst} />
+                                <ImageUpload label="Emblem" description="Report watermark & branding logo" currentValue={instData.logoUrl} onChange={v => setInstData({...instData, logoUrl: v})} disabled={!isEditingInst} />
                             </div>
                         </Card>
                     </div>
                 );
             case 'display': 
                 return (
-                    <div className="space-y-10">
+                    <div className="space-y-10 animate-in fade-in duration-500">
                         <SectionTitle title="Typography Library" icon={Palette} color="purple"/>
                         <p className="text-sm text-zinc-500 -mt-4 mb-6">Manage language-specific fonts. Uploaded fonts will automatically map to Malayalam and Arabic text across the entire platform. Reverting will fallback to system default fonts (Inter/Roboto Slab).</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -245,24 +293,112 @@ const GeneralSettings: React.FC = () => {
                 );
             case 'users':
                 return (
-                    <Card title="Registry Scopes">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-zinc-50 dark:bg-zinc-900 text-[9px] font-black uppercase text-zinc-400">
-                                    <tr><th className="px-6 py-4">Handle</th><th className="px-6 py-4">Role</th><th className="px-6 py-4 text-right">Actions</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-50 dark:divide-white/5">
-                                    {state.users.map(u => (
-                                        <tr key={u.id} className="group hover:bg-zinc-50 dark:hover:bg-white/[0.02]">
-                                            <td className="px-6 py-4 text-xs font-black uppercase">{u.username}</td>
-                                            <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-lg text-[9px] font-black bg-indigo-50 text-indigo-700">{u.role}</span></td>
-                                            <td className="px-6 py-4 text-right"><button onClick={() => deleteUser(u.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16}/></button></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    <div className="animate-in fade-in duration-500">
+                        <Card title="Registry Scopes">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-zinc-50 dark:bg-zinc-900 text-[9px] font-black uppercase text-zinc-400">
+                                        <tr><th className="px-6 py-4">Handle</th><th className="px-6 py-4">Role</th><th className="px-6 py-4 text-right">Actions</th></tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-50 dark:divide-white/5">
+                                        {state.users.map(u => (
+                                            <tr key={u.id} className="group hover:bg-zinc-50 dark:hover:bg-white/[0.02]">
+                                                <td className="px-6 py-4 text-xs font-black uppercase">{u.username}</td>
+                                                <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-lg text-[9px] font-black bg-indigo-50 text-indigo-700">{u.role}</span></td>
+                                                <td className="px-6 py-4 text-right"><button onClick={() => deleteUser(u.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16}/></button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+                    </div>
+                );
+            case 'instructions':
+                return (
+                    <div className="space-y-6 animate-in fade-in duration-500">
+                        <SectionTitle title="Contextual Guidance" icon={BookText} color="amber" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.values(TABS).filter(tab => tab !== TABS.PROJECTOR).map(tab => (
+                                <div key={tab} className="p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-white/[0.02]">
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">{tab}</label>
+                                    <textarea 
+                                        defaultValue={state.settings.instructions?.[tab] || ''}
+                                        onBlur={(e) => updateInstruction({ page: tab, text: e.target.value })}
+                                        className="w-full p-3 bg-zinc-50 dark:bg-black/20 border rounded-xl text-sm min-h-[80px]"
+                                        placeholder={`Help text for ${tab}...`}
+                                    />
+                                </div>
+                            ))}
                         </div>
-                    </Card>
+                    </div>
+                );
+            case 'data':
+                return (
+                    <div className="space-y-10 animate-in fade-in duration-500">
+                        <SectionTitle title="Continuity & Sovereignty" icon={Database} color="rose" />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <Card title="Cold Storage">
+                                <div className="space-y-6">
+                                    <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 flex items-start gap-4">
+                                        <Info className="text-indigo-600 shrink-0" size={20} />
+                                        <p className="text-xs font-bold leading-relaxed text-indigo-800 dark:text-indigo-200">
+                                            Export your entire festival state as a JSON file. This includes all participants, teams, items, and settings.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        <button 
+                                            onClick={handleBackup}
+                                            className="w-full flex items-center justify-center gap-3 py-4 bg-amazio-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-amazio-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                        >
+                                            <Download size={18} /> Export Full Backup
+                                        </button>
+                                        <div className="relative">
+                                            <input 
+                                                type="file" 
+                                                accept=".json" 
+                                                className="hidden" 
+                                                ref={restoreInputRef} 
+                                                onChange={handleRestore}
+                                            />
+                                            <button 
+                                                onClick={() => restoreInputRef.current?.click()}
+                                                disabled={isProcessing}
+                                                className="w-full flex items-center justify-center gap-3 py-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all"
+                                            >
+                                                {isProcessing ? <RefreshCw className="animate-spin" size={18}/> : <Upload size={18} />}
+                                                Restore from JSON
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card title="Danger Zone">
+                                <div className="space-y-6">
+                                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 flex items-start gap-4">
+                                        <ShieldAlert className="text-rose-600 shrink-0" size={20} />
+                                        <p className="text-xs font-bold leading-relaxed text-rose-800 dark:text-rose-200">
+                                            Resetting the festival will delete all participants, scores, and items. Settings and users will be preserved.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={async () => {
+                                            setIsProcessing(true);
+                                            await resetFestival();
+                                            setIsProcessing(false);
+                                        }}
+                                        disabled={isProcessing}
+                                        className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                    >
+                                        {isProcessing ? <RefreshCw className="animate-spin" size={18}/> : <Trash2 size={18} />}
+                                        Reset Competition Data
+                                    </button>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
                 );
             default: return null;
         }

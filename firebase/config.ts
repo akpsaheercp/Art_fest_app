@@ -1,18 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-/* Added missing import for getStorage */
 import { getStorage } from 'firebase/storage';
 
 // User-provided Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyA6nKNvbM7bJ0Nnuedn7uWsk7eoYvnBReM",
-  authDomain: "art-fest-manager-webapp.firebaseapp.com",
-  projectId: "art-fest-manager-webapp",
-  storageBucket: "art-fest-manager-webapp.appspot.com",
-  messagingSenderId: "738302627377",
-  appId: "1:738302627377:web:3cbc1cf11e58e39caecf10",
-  measurementId: "G-P6MB15FMBC"
+  apiKey: "AIzaSyAWi2h0F7cY3KnoocvemDlm2OU4WG0jrZo",
+  authDomain: "artfestmanager.firebaseapp.com",
+  projectId: "artfestmanager",
+  storageBucket: "artfestmanager.firebasestorage.app",
+  messagingSenderId: "798281589566",
+  appId: "1:798281589566:web:a4e9195c9a5c767c81426f",
+  measurementId: "G-Z8HHZNFPGW"
 };
 
 // Initialize Firebase
@@ -24,8 +23,7 @@ const db = getFirestore(app);
 // Initialize Firebase Authentication
 const auth = getAuth(app);
 
-/* Added storage initialization */
+// Initialize storage
 const storage = getStorage(app);
 
-/* Added storage to exports */
 export { app, db, auth, storage };

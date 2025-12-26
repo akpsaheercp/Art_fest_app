@@ -105,6 +105,9 @@ interface FirebaseContextType {
   deleteTemplate: (id: string) => Promise<void>;
   addAsset: (asset: Omit<Asset, 'id'>) => Promise<void>;
   deleteAsset: (id: string) => Promise<void>;
+
+  restoreState: (newState: AppState) => Promise<void>;
+  resetFestival: () => Promise<void>;
 }
 
 export const FirebaseContext = createContext<FirebaseContextType | null>(null);
@@ -178,7 +181,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             assembledState.users = data.users || [];
             setState({ ...assembledState });
         } else {
-            // Festival document wiped from DB
             setFestError(true);
             setLoading(false);
         }
@@ -204,6 +206,10 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [currentUser?.festId]);
 
   const festDoc = (col: string, id: string) => doc(db, 'fests', currentUser!.festId, col, id);
+
+  const login = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+  };
 
   const register = async (username: string, email: string, pass: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
@@ -243,10 +249,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
         festId
     });
     await batch.commit();
-  };
-
-  const login = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
   };
 
   const logout = async () => {
@@ -460,6 +462,62 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
   const deleteAsset = async (id: string) => await deleteDoc(festDoc('assets', id));
 
+  const restoreState = async (newState: AppState) => {
+      if (!currentUser?.festId) return;
+      const festId = currentUser.festId;
+      const batch = writeBatch(db);
+
+      // 1. Root Document
+      batch.set(doc(db, 'fests', festId), {
+          id: festId,
+          settings: newState.settings,
+          gradePoints: newState.gradePoints,
+          permissions: newState.permissions,
+          users: newState.users,
+          updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 2. Collections
+      const collectionKeys = [
+          'categories', 'teams', 'items', 'participants', 'judges', 
+          'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results',
+          'fonts', 'templates', 'assets'
+      ];
+
+      for (const key of collectionKeys) {
+          const items = (newState as any)[key] || [];
+          // Note: In a production app, you might want to delete existing first, but for simplicity:
+          items.forEach((item: any) => {
+              if (item.id) {
+                  batch.set(doc(db, 'fests', festId, key, item.id), item);
+              }
+          });
+      }
+
+      await batch.commit();
+  };
+
+  const resetFestival = async () => {
+      if (!currentUser?.festId || !state) return;
+      if (!confirm("DANGER: This will delete ALL competitive data (participants, scores, results). Continue?")) return;
+      
+      const festId = currentUser.festId;
+      const batch = writeBatch(db);
+
+      const collectionKeys = [
+          'categories', 'teams', 'items', 'participants', 'judges', 
+          'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results'
+      ];
+
+      for (const key of collectionKeys) {
+          const q = query(collection(db, 'fests', festId, key));
+          const snap = await getDocs(q);
+          snap.docs.forEach(d => batch.delete(d.ref));
+      }
+
+      await batch.commit();
+  };
+
   return (
     <FirebaseContext.Provider value={{
       state, currentUser, firebaseUser, loading, festError, globalFilters, setGlobalFilters,
@@ -476,7 +534,8 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       addScheduleEvent, setSchedule, updateTabulationEntry, updateMultipleTabulationEntries,
       deleteEventTabulation, updateResultStatus, declareResult, updateItemJudges,
       addUser, updateUser, deleteUser, updatePermissions, updateInstruction, hasPermission,
-      addFont, deleteFont, addTemplate, deleteTemplate, addAsset, deleteAsset
+      addFont, deleteFont, addTemplate, deleteTemplate, addAsset, deleteAsset,
+      restoreState, resetFestival
     }}>
       {children}
     </FirebaseContext.Provider>
