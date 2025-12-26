@@ -149,8 +149,8 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
                   setLoading(false);
                 }
             }, (err) => {
-                console.warn("User profile permission denied (expected on logout)");
-                setCurrentUser(null);
+                console.warn("User profile loading failed:", err);
+                setLoading(false);
             });
             return () => unsubUser();
         } else {
@@ -184,6 +184,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const unsubs: (() => void)[] = [];
 
+    // Main Fest Doc
     unsubs.push(onSnapshot(festRef, (snap) => {
         if (snap.exists()) {
             const data = snap.data();
@@ -197,9 +198,11 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             setLoading(false);
         }
     }, (err) => {
-        console.warn("Fest root permission denied (expected on logout)");
+        console.error("Fest Root Sync Error:", err);
+        setLoading(false);
     }));
 
+    // Subcollections
     const collectionsToListen = [
         'categories', 'teams', 'items', 'participants', 'judges', 
         'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results',
@@ -214,7 +217,9 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             setState({ ...assembledState });
             setLoading(false);
         }, (err) => {
-            console.warn(`Collection ${colName} permission denied (expected on logout)`);
+            console.warn(`Collection ${colName} Sync Error:`, err);
+            // Don't necessarily stop loading if one subcollection fails, but ensures it can terminate
+            setLoading(false);
         }));
     });
 
@@ -522,7 +527,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
           'fonts', 'templates', 'assets'
       ];
 
-      // 1. Wipe all existing subcollections to prevent data overlap/mixing
       for (const key of collectionKeys) {
           const q = query(collection(db, 'fests', festId, key));
           const snap = await getDocs(q);
@@ -535,7 +539,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
           }
       }
 
-      // 2. Update Root Document with core configurations
       await setDoc(doc(db, 'fests', festId), {
           id: festId,
           settings: newState.settings || defaultSettings,
@@ -545,7 +548,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
           updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 3. Populate new data into subcollections
       for (const key of collectionKeys) {
           const items = (newState as any)[key] || [];
           if (items.length === 0) continue;
