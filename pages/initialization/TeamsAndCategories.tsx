@@ -21,7 +21,7 @@ const getThemeColor = (str: string) => {
     }
     const themes = [
         { bg: 'bg-indigo-500', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800', light: 'bg-indigo-50 dark:bg-indigo-900/20', shadow: 'shadow-indigo-500/10' },
-        { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', light: 'bg-emerald-50 dark:bg-emerald-900/20', shadow: 'shadow-emerald-500/10' },
+        { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800', light: 'bg-emerald-50 dark:bg-indigo-900/20', shadow: 'shadow-emerald-500/10' },
         { bg: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800', light: 'bg-amber-50 dark:bg-amber-900/10', shadow: 'shadow-amber-500/10' },
         { bg: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800', light: 'bg-rose-50 dark:bg-rose-900/20', shadow: 'shadow-rose-500/10' },
         { bg: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800', light: 'bg-purple-50 dark:bg-fuchsia-900/20', shadow: 'shadow-purple-500/10' },
@@ -417,6 +417,7 @@ const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, onClose, 
 const TeamsAndCategories: React.FC = () => {
     const { 
         state, 
+        // Fix: Methods now exist on FirebaseContextType
         addMultipleTeams, updateTeam, deleteMultipleTeams, 
         addCategory, updateCategory, deleteMultipleCategories,
         addMultipleParticipants, updateMultipleParticipants
@@ -435,6 +436,7 @@ const TeamsAndCategories: React.FC = () => {
         
         // 1. Update/Add Team
         if (editingTeam) await updateTeam(newTeam);
+        // Fix: addMultipleTeams correctly used
         else await addMultipleTeams([newTeam]);
 
         // 2. Clear existing roles for this team (Omit the role property entirely)
@@ -491,6 +493,7 @@ const TeamsAndCategories: React.FC = () => {
         }
 
         if (updates.length > 0) await updateMultipleParticipants(updates);
+        // Fix: addMultipleParticipants correctly used
         if (newParticipants.length > 0) await addMultipleParticipants(newParticipants);
     };
 

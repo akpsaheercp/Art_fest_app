@@ -1,83 +1,96 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useRef, useEffect } from 'react';
 import Card from '../../components/Card';
 import { useFirebase } from '../../hooks/useFirebase';
 import { 
-    X, Users, Trash2, BookText, Database, Info, FileDown, Upload, ArrowRight, 
-    Building2, Briefcase, Image as ImageIcon, Check, LayoutTemplate, RotateCcw, 
-    ShieldAlert, Award, Edit2, Save, Type, CheckCircle, CheckCircle2, ClipboardList, Plus, FileText, 
-    MoreHorizontal, Settings, Palette, Calendar, SlidersHorizontal, MousePointer2, 
-    UserCheck, Shield, LayoutDashboard, UserPlus, Medal, Gavel, Timer, Monitor,
-    BarChart2, Home, Search, AlertTriangle, ShieldCheck, Download, History, Undo2,
-    Sparkles, RefreshCw
+    X, Trash2, BookText, Database, Info, Upload, 
+    Image as ImageIcon, Check, RotateCcw, 
+    ShieldAlert, Edit2, Save, Type, 
+    Palette, Calendar as CalendarIcon, 
+    Download, RefreshCw, Mail, Phone, MapPin, 
+    FileText, Plus, CheckCircle2, UserPlus, Shield, UserCog, CheckSquare, Square
 } from 'lucide-react';
-import { User, UserRole, FontConfig, AppState } from '../../types';
-import { TABS, TAB_DISPLAY_NAMES } from '../../constants';
+import { FontConfig, AppState, Settings, UserRole } from '../../types';
+import { TABS } from '../../constants';
 
-// --- Helper Component: Image Upload ---
-interface ImageUploadProps {
-    label: string;
-    description: string;
-    currentValue: string | undefined;
-    onChange: (value: string) => void;
-    disabled?: boolean;
-}
+// --- Helper Component: Styled Input Group ---
+const SettingInput = ({ label, value, onChange, disabled, placeholder, type = "text", className = "" }: { 
+    label: string, value: string, onChange: (v: string) => void, disabled: boolean, placeholder?: string, type?: string, className?: string 
+}) => (
+    <div className={`space-y-1.5 ${className}`}>
+        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">{label}</label>
+        {type === "textarea" ? (
+            <textarea
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                disabled={disabled}
+                placeholder={placeholder}
+                className="w-full px-5 py-4 bg-[#151816] border border-white/5 rounded-2xl text-sm font-bold text-zinc-300 outline-none focus:ring-1 focus:ring-amazio-accent/30 disabled:opacity-60 transition-all min-h-[80px]"
+            />
+        ) : (
+            <input
+                type={type}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                disabled={disabled}
+                placeholder={placeholder}
+                className="w-full px-5 py-4 bg-[#151816] border border-white/5 rounded-2xl text-sm font-bold text-zinc-300 outline-none focus:ring-1 focus:ring-amazio-accent/30 disabled:opacity-60 transition-all"
+            />
+        )}
+    </div>
+);
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ label, description, currentValue, onChange, disabled }) => {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+// --- Helper Component: Styled Upload Zone ---
+const StyledUploadZone = ({ label, description, value, onChange, disabled }: { 
+    label: string, description: string, value: string | undefined, onChange: (v: string) => void, disabled: boolean 
+}) => {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 500 * 1024) { alert("File too large! Max 500KB."); return; }
             const reader = new FileReader();
             reader.onloadend = () => onChange(reader.result as string);
             reader.readAsDataURL(file);
         }
     };
+
     return (
-        <div className={`h-full flex flex-col justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 bg-zinc-50/50 dark:bg-black/20 ${disabled ? 'opacity-60 pointer-events-none' : 'hover:border-indigo-500/30 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors'}`}>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4">{label}</label>
-            <div className="flex-grow flex flex-col items-center justify-center gap-4">
-                {currentValue ? (
-                    <div className="relative w-full aspect-video bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden p-2 group">
-                        <img src={currentValue} alt={label} className="max-w-full max-h-full object-contain" />
-                        {!disabled && <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => fileInputRef.current?.click()}><span className="text-white text-xs font-bold flex items-center gap-2"><Upload size={14}/> Replace</span></div>}
-                    </div>
+        <div className="flex flex-col h-full">
+            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">{label}</label>
+            <div 
+                onClick={() => !disabled && fileRef.current?.click()}
+                className={`flex-grow relative flex flex-col items-center justify-center p-6 rounded-[2rem] border-2 border-dashed transition-all duration-300 ${disabled ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-amazio-accent/50 hover:bg-white/[0.02] cursor-pointer'} ${value ? 'border-amazio-accent/20' : 'border-white/5 bg-black/20'}`}
+            >
+                {value ? (
+                    <img src={value} alt={label} className="max-w-full max-h-48 object-contain drop-shadow-2xl" />
                 ) : (
-                    <div onClick={() => !disabled && fileInputRef.current?.click()} className="w-full aspect-video bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center justify-center gap-3 cursor-pointer group">
-                        <div className="p-3 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors"><ImageIcon size={24} /></div>
-                        <span className="text-[10px] font-bold text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300">Click to Upload</span>
+                    <div className="text-center space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto text-zinc-500">
+                            <ImageIcon size={24} />
+                        </div>
+                        <span className="block text-[10px] font-black uppercase tracking-widest text-zinc-500">Click to Upload</span>
                     </div>
                 )}
-                <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange} disabled={disabled} />
+                <input type="file" ref={fileRef} hidden accept="image/*" onChange={handleFile} />
             </div>
+            <p className="text-[10px] text-zinc-600 mt-4 text-center italic">{description}</p>
         </div>
     );
 };
 
 // --- Helper Component: Language Font Card ---
-const LanguageFontCard = ({ title, subtitle, language, currentFont, previewText, onSave, onDelete }: { 
-    title: string; subtitle: string; language: 'malayalam' | 'arabic' | 'general'; 
+const LanguageFontCard = ({ title, language, currentFont, previewText, onSave, onDelete }: { 
+    title: string; language: 'malayalam' | 'arabic' | 'general'; 
     currentFont?: FontConfig; previewText: string; onSave: (font: Omit<FontConfig, 'id'>) => void; onDelete?: () => void;
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [tempBase64, setTempBase64] = useState<string | null>(null);
-    const [tempName, setTempName] = useState(currentFont?.name || '');
     const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        if (!tempBase64) setTempName(currentFont?.name || '');
-    }, [currentFont, tempBase64]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) { alert("Font file too large! Max 2MB."); return; }
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setTempBase64(reader.result as string);
-                setTempName(file.name);
-            };
+            reader.onloadend = () => setTempBase64(reader.result as string);
             reader.readAsDataURL(file);
         }
     };
@@ -85,174 +98,173 @@ const LanguageFontCard = ({ title, subtitle, language, currentFont, previewText,
     const handleApply = async () => {
         if (!tempBase64) return;
         setIsSaving(true);
-        try {
-            await onSave({ 
-                name: tempName, 
-                url: tempBase64, 
-                family: `Custom_${language}_${Date.now()}`, 
-                language 
-            });
-            setTempBase64(null);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleReset = async () => {
-        if (!onDelete) return;
-        if (confirm(`Revert ${title} to system default? This will remove the custom font file.`)) {
-            setIsSaving(true);
-            try {
-                await onDelete();
-                setTempBase64(null);
-                setTempName('');
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setIsSaving(false);
-            }
-        }
+        await onSave({ name: 'Custom Font', url: tempBase64, family: `Custom_${language}_${Date.now()}`, language });
+        setTempBase64(null);
+        setIsSaving(false);
     };
 
     return (
-        <div className="bg-[#121412] border border-zinc-800 rounded-[2rem] p-8 flex flex-col gap-6 shadow-xl relative group">
-             <div className="flex items-start justify-between">
-                <div className="flex items-start gap-5">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-900/10 flex items-center justify-center text-emerald-500 border border-emerald-900/20 shadow-inner"><Type size={24} /></div>
+        <div className="bg-[#121412] border border-white/5 rounded-[2rem] p-8 flex flex-col gap-6 shadow-xl">
+             <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20"><Type size={20} /></div>
                     <div>
-                        <h3 className="text-white font-serif text-xl font-bold tracking-tight">{title}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                            {currentFont ? (
-                                <span className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                                    <Check size={10} strokeWidth={3} /> Active: {currentFont.name}
-                                </span>
-                            ) : (
-                                <span className="text-[9px] font-black uppercase text-zinc-500 bg-zinc-500/10 px-2 py-0.5 rounded-md border border-zinc-500/20">
-                                    System Default
-                                </span>
-                            )}
-                        </div>
+                        <h3 className="text-white font-serif text-lg font-bold">{title}</h3>
+                        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">{currentFont ? 'Custom Active' : 'System Default'}</span>
                     </div>
                 </div>
-                {currentFont && !tempBase64 && (
-                    <button 
-                        onClick={handleReset} 
-                        disabled={isSaving}
-                        className="p-2.5 text-zinc-500 hover:text-rose-500 bg-zinc-800/50 hover:bg-rose-500/10 rounded-xl transition-all border border-zinc-700"
-                        title="Remove Custom Font"
-                    >
-                        {isSaving ? <RefreshCw size={16} className="animate-spin" /> : <RotateCcw size={16}/>}
-                    </button>
+                {currentFont && (
+                    <button onClick={onDelete} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"><Trash2 size={16}/></button>
                 )}
              </div>
 
-             <div className="bg-[#050605] rounded-3xl p-8 border border-zinc-800/50 min-h-[140px] flex flex-col justify-center relative group/preview">
+             <div className="bg-black/40 rounded-2xl p-6 border border-white/5 min-h-[100px] flex items-center justify-center">
                 <p 
-                    className="text-3xl text-white text-center leading-relaxed transition-all duration-500" 
-                    style={{ 
-                        fontFamily: tempBase64 ? 'inherit' : (currentFont ? `'${currentFont.family}', sans-serif` : 'inherit'), 
-                        direction: language === 'arabic' ? 'rtl' : 'ltr' 
-                    }}
+                    className="text-2xl text-white text-center" 
+                    style={{ fontFamily: tempBase64 ? 'inherit' : (currentFont ? `'${currentFont.family}', sans-serif` : 'inherit'), direction: language === 'arabic' ? 'rtl' : 'ltr' }}
                 >
                     {previewText}
                 </p>
-                {tempBase64 && (
-                    <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[2px] rounded-3xl flex items-center justify-center animate-in fade-in zoom-in-95">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-black/60 px-4 py-2 rounded-full border border-emerald-500/30">Preview Pending Apply</span>
-                    </div>
-                )}
              </div>
 
              <div className="flex gap-2">
-                <button 
-                    onClick={() => fileInputRef.current?.click()} 
-                    className={`flex-1 px-5 py-4 rounded-xl border font-black uppercase tracking-widest text-[10px] transition-all ${tempBase64 ? 'border-zinc-600 bg-zinc-700 text-white' : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:text-white'}`}
-                >
-                    {tempBase64 ? 'Change Selection' : currentFont ? 'Replace Font' : 'Upload Font'}
-                </button>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".ttf,.otf,.woff" onChange={handleFileChange} />
-                
+                <button onClick={() => fileInputRef.current?.click()} className="flex-1 px-4 py-3 rounded-xl border border-white/10 bg-zinc-800/50 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all">Upload Font</button>
+                <input type="file" ref={fileInputRef} hidden accept=".ttf,.otf,.woff" onChange={handleFileChange} />
                 {tempBase64 && (
-                    <button 
-                        onClick={handleApply} 
-                        disabled={isSaving} 
-                        className={`flex-1 py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2`}
-                    >
-                        {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                        Apply New Font
-                    </button>
-                )}
-
-                {tempBase64 && (
-                    <button 
-                        onClick={() => { setTempBase64(null); setTempName(currentFont?.name || ''); }} 
-                        className="px-4 py-4 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition-all"
-                    >
-                        <X size={16} />
-                    </button>
+                    <button onClick={handleApply} className="flex-1 bg-emerald-600 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Apply</button>
                 )}
              </div>
         </div>
     );
 };
 
-const SectionTitle = ({ title, icon: Icon, color = 'indigo' }: { title: string, icon?: any, color?: string }) => {
-    const colors: Record<string, string> = { indigo: 'bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.4)]', emerald: 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]', amber: 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]', purple: 'bg-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)]', rose: 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.4)]' };
-    return (<div className="flex items-center gap-3 mb-6"><div className={`h-5 w-1.5 rounded-full ${colors[color] || colors.indigo}`}></div><h3 className="text-xl font-black font-serif text-amazio-primary dark:text-white uppercase tracking-tighter">{title}</h3>{Icon && <Icon className="text-zinc-400 ml-1" size={18} />}</div>);
+// --- Scope Permission Card Component ---
+const ScopeCard = ({ title, role, permissions, onToggle }: { title: string, role: UserRole, permissions: string[], onToggle: (tab: string) => void }) => {
+    return (
+        <div className="bg-[#121412] border border-white/5 rounded-[2.5rem] p-8 flex flex-col gap-6 shadow-2xl h-[500px]">
+            <div className="flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]"></div>
+                <h3 className="text-lg font-black font-serif text-white uppercase tracking-tight">{title}</h3>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                {Object.values(TABS).filter(t => t !== TABS.PROJECTOR).map(tab => {
+                    const isActive = permissions.includes(tab);
+                    return (
+                        <div 
+                            key={tab} 
+                            onClick={() => onToggle(tab)}
+                            className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all duration-300 border-2 ${isActive ? 'bg-white/[0.03] border-white/10 shadow-lg' : 'bg-transparent border-transparent hover:bg-white/[0.01]'}`}
+                        >
+                            <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${isActive ? 'text-white' : 'text-zinc-500'}`}>{tab}</span>
+                            <div className={`w-5 h-5 rounded border transition-colors flex items-center justify-center ${isActive ? 'bg-[#121412] border-emerald-500/50' : 'bg-black/20 border-zinc-700'}`}>
+                                {isActive && <CheckCircle2 size={14} className="text-emerald-500" strokeWidth={3} />}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 };
 
 const GeneralSettings: React.FC = () => {
     const { 
-        state, updateSettings, addUser, updateUser, deleteUser, 
-        updatePermissions, updateInstruction, addFont, deleteFont, 
-        settingsSubView: activeTab, restoreState, resetFestival 
+        state, updateSettings, deleteUser, 
+        updateInstruction, addFont, deleteFont, 
+        settingsSubView: activeTab, restoreState, resetFestival, updatePermissions 
     } = useFirebase();
     
-    const [instData, setInstData] = useState(state?.settings.institutionDetails || { name: '', address: '', email: '', contactNumber: '', description: '', logoUrl: '' });
-    const [isEditingInst, setIsEditingInst] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [instEdit, setInstEdit] = useState(false);
+    const [brandEdit, setBrandEdit] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
+    
+    const [instData, setInstData] = useState(state?.settings.institutionDetails || { name: '', address: '', email: '', contactNumber: '', logoUrl: '' });
+    const [brandData, setBrandData] = useState({
+        festivalName: state?.settings.festivalName || '',
+        organizingTeam: state?.settings.organizingTeam || '',
+        heading: state?.settings.heading || '',
+        description: state?.settings.description || '',
+        eventDates: state?.settings.eventDates || [],
+        branding: state?.settings.branding || { typographyUrl: '', teamLogoUrl: '' }
+    });
+
+    const [newDate, setNewDate] = useState('');
     const restoreInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
-        if (!isEditingInst && state?.settings.institutionDetails) 
-            setInstData(state.settings.institutionDetails); 
-    }, [state?.settings.institutionDetails, isEditingInst]);
+        if (state) {
+            if (!instEdit) setInstData(state.settings.institutionDetails || { name: '', address: '', email: '', contactNumber: '', logoUrl: '' });
+            if (!brandEdit) setBrandData({
+                festivalName: state.settings.festivalName || '',
+                organizingTeam: state.settings.organizingTeam,
+                heading: state.settings.heading,
+                description: state.settings.description,
+                eventDates: state.settings.eventDates || [],
+                branding: state.settings.branding || { typographyUrl: '', teamLogoUrl: '' }
+            });
+        }
+    }, [state, instEdit, brandEdit]);
 
     if (!state) return null;
 
-    const handleBackup = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `art_fest_backup_${new Date().toISOString().split('T')[0]}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+    const handleAddDate = () => {
+        if (!newDate) return;
+        if (brandData.eventDates.includes(newDate)) return;
+        setBrandData(prev => ({ ...prev, eventDates: [...prev.eventDates, newDate].sort() }));
+        setNewDate('');
     };
 
-    const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleRemoveDate = (date: string) => {
+        setBrandData(prev => ({ ...prev, eventDates: prev.eventDates.filter(d => d !== date) }));
+    };
+
+    const saveInst = async () => {
+        await updateSettings({ institutionDetails: instData });
+        setInstEdit(false);
+    };
+
+    const saveBrand = async () => {
+        await updateSettings({ 
+            festivalName: brandData.festivalName,
+            organizingTeam: brandData.organizingTeam,
+            heading: brandData.heading,
+            description: brandData.description,
+            eventDates: brandData.eventDates,
+            branding: brandData.branding
+        });
+        setBrandEdit(false);
+    };
+
+    const handleTogglePermission = (role: UserRole, tab: string) => {
+        const current = state.permissions[role] || [];
+        const next = current.includes(tab) ? current.filter(t => t !== tab) : [...current, tab];
+        updatePermissions({ role, pages: next });
+    };
+
+    const handleRestoreData = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!confirm("RESTORE DATA: This will overwrite your current festival data with the backup file. Proceed?")) {
+        if (!confirm("RESTORE WARNING: This will overwrite all current festival data. This process cannot be undone. Proceed?")) {
             e.target.value = '';
             return;
         }
 
-        setIsProcessing(true);
+        setIsRestoring(true);
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
-                const newState = JSON.parse(event.target?.result as string) as AppState;
-                await restoreState(newState);
-                alert("Restoration complete. The app will now reload.");
+                const data = JSON.parse(event.target?.result as string);
+                await restoreState(data);
+                alert("Festival data successfully restored.");
                 window.location.reload();
-            } catch (err) {
-                alert("Invalid backup file.");
+            } catch (error) {
+                console.error(error);
+                alert("Restore failed: Invalid data format.");
             } finally {
-                setIsProcessing(false);
+                setIsRestoring(false);
+                if (restoreInputRef.current) restoreInputRef.current.value = '';
             }
         };
         reader.readAsText(file);
@@ -262,71 +274,204 @@ const GeneralSettings: React.FC = () => {
         switch(activeTab) {
             case 'details':
                 return (
-                    <div className="space-y-10 animate-in fade-in duration-500">
-                        <Card title="Institution Core" action={isEditingInst ? <button onClick={async () => { await updateSettings({ institutionDetails: instData }); setIsEditingInst(false); }} className="p-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200"><Check size={20}/></button> : <button onClick={() => setIsEditingInst(true)} className="p-2 text-zinc-400 hover:text-indigo-500"><Edit2 size={18}/></button>}>
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-2 space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-zinc-400 ml-1 mb-1.5 block">Identity</label>
-                                        <input value={instData.name} onChange={e => setInstData({...instData, name: e.target.value})} disabled={!isEditingInst} className="w-full p-4 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold text-lg" placeholder="Legal Name" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-zinc-400 ml-1 mb-1.5 block">Location</label>
-                                        <textarea value={instData.address} onChange={e => setInstData({...instData, address: e.target.value})} disabled={!isEditingInst} className="w-full p-4 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold min-h-[120px]" placeholder="Address" />
+                    <div className="space-y-12 animate-in fade-in duration-700">
+                        {/* Institution Core Block */}
+                        <div className="bg-[#121412]/80 backdrop-blur-xl border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                            <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-6 bg-amazio-accent rounded-full shadow-[0_0_15px_rgba(154,168,106,0.4)]"></div>
+                                    <h3 className="text-xl font-black font-serif text-white uppercase tracking-tight">Institution Core</h3>
+                                </div>
+                                {instEdit ? (
+                                    <button onClick={saveInst} className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"><Save size={18}/></button>
+                                ) : (
+                                    <button onClick={() => setInstEdit(true)} className="p-2.5 text-zinc-500 hover:text-white transition-colors"><Edit2 size={20}/></button>
+                                )}
+                            </div>
+                            
+                            <div className="p-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+                                <div className="lg:col-span-7 space-y-6">
+                                    <SettingInput label="Legal Name" value={instData.name} onChange={v => setInstData({...instData, name: v})} disabled={!instEdit} placeholder="e.g. Darusuffa Academy" />
+                                    <SettingInput label="Postal Address" type="textarea" value={instData.address} onChange={v => setInstData({...instData, address: v})} disabled={!instEdit} placeholder="Full physical address..." />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <SettingInput label="Email" type="email" value={instData.email} onChange={v => setInstData({...instData, email: v})} disabled={!instEdit} placeholder="contact@institution.com" />
+                                        <SettingInput label="Contact No" type="tel" value={instData.contactNumber} onChange={v => setInstData({...instData, contactNumber: v})} disabled={!instEdit} placeholder="+91..." />
                                     </div>
                                 </div>
-                                <ImageUpload label="Emblem" description="Report watermark & branding logo" currentValue={instData.logoUrl} onChange={v => setInstData({...instData, logoUrl: v})} disabled={!isEditingInst} />
+                                <div className="lg:col-span-5">
+                                    <StyledUploadZone label="Institutional Emblem" description="Primary watermark for reports and certificates." value={instData.logoUrl} onChange={v => setInstData({...instData, logoUrl: v})} disabled={!instEdit} />
+                                </div>
                             </div>
-                        </Card>
+                        </div>
+
+                        {/* Event Branding Block */}
+                        <div className="bg-[#121412]/80 backdrop-blur-xl border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                            <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]"></div>
+                                    <h3 className="text-xl font-black font-serif text-white uppercase tracking-tight">Event Branding</h3>
+                                </div>
+                                {brandEdit ? (
+                                    <button onClick={saveBrand} className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"><Save size={18}/></button>
+                                ) : (
+                                    <button onClick={() => setBrandEdit(true)} className="p-2.5 text-zinc-500 hover:text-white transition-colors"><Edit2 size={20}/></button>
+                                )}
+                            </div>
+
+                            <div className="p-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+                                <div className="lg:col-span-7 space-y-6">
+                                    <SettingInput label="Festival Name" value={brandData.festivalName} onChange={v => setBrandData({...brandData, festivalName: v})} disabled={!brandEdit} placeholder="e.g. AMAZIO" />
+                                    <SettingInput label="Organizing Body" value={brandData.organizingTeam} onChange={v => setBrandData({...brandData, organizingTeam: v})} disabled={!brandEdit} placeholder="e.g. Students Association" />
+                                    <SettingInput label="Festival Theme Title" value={brandData.heading} onChange={v => setBrandData({...brandData, heading: v})} disabled={!brandEdit} placeholder="e.g. Amazio_2026" />
+                                    
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center px-1">
+                                            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Main Event Dates</label>
+                                            <CalendarIcon size={12} className="text-zinc-500" />
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3 p-4 bg-[#151816] border border-white/5 rounded-2xl min-h-[58px]">
+                                            {brandData.eventDates.map(date => (
+                                                <div key={date} className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/5 rounded-xl text-xs font-bold text-zinc-300 animate-in zoom-in-95">
+                                                    {date}
+                                                    {brandEdit && <button onClick={() => handleRemoveDate(date)} className="p-0.5 hover:text-rose-500 transition-colors"><X size={14}/></button>}
+                                                </div>
+                                            ))}
+                                            {brandEdit && (
+                                                <div className="flex items-center gap-2">
+                                                    <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="bg-transparent border-none text-xs text-indigo-400 outline-none p-0 cursor-pointer w-24" />
+                                                    <button onClick={handleAddDate} className="p-1.5 bg-indigo-600 text-white rounded-lg hover:scale-105 active:scale-95 transition-all"><Plus size={14} strokeWidth={3}/></button>
+                                                </div>
+                                            )}
+                                            {brandData.eventDates.length === 0 && !brandEdit && <span className="text-zinc-600 text-xs italic">No dates configured</span>}
+                                        </div>
+                                    </div>
+
+                                    <SettingInput label="Dashboard Tagline" value={brandData.description} onChange={v => setBrandData({...brandData, description: v})} disabled={!brandEdit} placeholder="Knowledge Fest, to the Wisdom" />
+                                </div>
+                                <div className="lg:col-span-5">
+                                    <StyledUploadZone label="Stylized Event Logo" description="High-resolution PNG for main dashboard hero section." value={brandData.branding.typographyUrl} onChange={v => setBrandData({...brandData, branding: { ...brandData.branding, typographyUrl: v }})} disabled={!brandEdit} />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 );
             case 'display': 
                 return (
                     <div className="space-y-10 animate-in fade-in duration-500">
-                        <SectionTitle title="Typography Library" icon={Palette} color="purple"/>
-                        <p className="text-sm text-zinc-500 -mt-4 mb-6">Manage language-specific fonts. Uploaded fonts will automatically map to Malayalam and Arabic text across the entire platform. Reverting will fallback to system default fonts (Inter/Roboto Slab).</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <LanguageFontCard title="Malayalam Font" subtitle="Global mapping" language="malayalam" previewText="മലയാളം ഫോണ്ട് പ്രിവ്യൂ" currentFont={state.fonts.find(f => f.language === 'malayalam')} onSave={addFont} onDelete={() => { const f = state.fonts.find(f => f.language === 'malayalam'); if(f) return deleteFont(f.id); }} />
-                            <LanguageFontCard title="Arabic Font" subtitle="Global mapping" language="arabic" previewText="معاينة خط اللغة العربية" currentFont={state.fonts.find(f => f.language === 'arabic')} onSave={addFont} onDelete={() => { const f = state.fonts.find(f => f.language === 'arabic'); if(f) return deleteFont(f.id); }} />
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="h-5 w-1.5 bg-purple-500 rounded-full"></div>
+                            <h3 className="text-xl font-black font-serif text-white uppercase tracking-tight">Typography Library</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <LanguageFontCard title="Malayalam Font" language="malayalam" previewText="മലയാളം ഫോണ്ട് പ്രിവ്യൂ" currentFont={state.fonts.find(f => f.language === 'malayalam')} onSave={addFont} onDelete={() => { const f = state.fonts.find(f => f.language === 'malayalam'); if(f) deleteFont(f.id); }} />
+                            <LanguageFontCard title="Arabic Font" language="arabic" previewText="معാينة خط اللغة العربية" currentFont={state.fonts.find(f => f.language === 'arabic')} onSave={addFont} onDelete={() => { const f = state.fonts.find(f => f.language === 'arabic'); if(f) deleteFont(f.id); }} />
                         </div>
                     </div>
                 );
             case 'users':
                 return (
-                    <div className="animate-in fade-in duration-500">
-                        <Card title="Registry Scopes">
-                            <div className="overflow-x-auto">
+                    <div className="space-y-12 animate-in fade-in duration-500 pb-20">
+                        {/* Authorized Access Registry Card */}
+                        <div className="bg-[#121412] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                             <div className="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]"></div>
+                                    <h3 className="text-xl font-black font-serif text-white uppercase tracking-tight">Authorized Access Registry</h3>
+                                </div>
+                                <button className="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-br from-amber-400 to-amber-600 text-black font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all">
+                                    <Plus size={16} strokeWidth={3} /> Add Operator
+                                </button>
+                            </div>
+
+                            <div className="p-1">
                                 <table className="w-full text-left">
-                                    <thead className="bg-zinc-50 dark:bg-zinc-900 text-[9px] font-black uppercase text-zinc-400">
-                                        <tr><th className="px-6 py-4">Handle</th><th className="px-6 py-4">Role</th><th className="px-6 py-4 text-right">Actions</th></tr>
+                                    <thead className="bg-zinc-900/50 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                        <tr>
+                                            <th className="px-10 py-6">Account Handle</th>
+                                            <th className="px-10 py-6 text-center">Role Priority</th>
+                                            <th className="px-10 py-6">Assigned Entity</th>
+                                            <th className="px-10 py-6 text-right">Actions</th>
+                                        </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-zinc-50 dark:divide-white/5">
-                                        {state.users.map(u => (
-                                            <tr key={u.id} className="group hover:bg-zinc-50 dark:hover:bg-white/[0.02]">
-                                                <td className="px-6 py-4 text-xs font-black uppercase">{u.username}</td>
-                                                <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-lg text-[9px] font-black bg-indigo-50 text-indigo-700">{u.role}</span></td>
-                                                <td className="px-6 py-4 text-right"><button onClick={() => deleteUser(u.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16}/></button></td>
-                                            </tr>
-                                        ))}
+                                    <tbody className="divide-y divide-white/5">
+                                        {state.users.map(u => {
+                                            const roleColors: Record<string, string> = {
+                                                [UserRole.MANAGER]: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+                                                [UserRole.JUDGE]: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+                                                [UserRole.TEAM_LEADER]: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                                [UserRole.THIRD_PARTY]: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                                            };
+                                            
+                                            // Find Entity display name
+                                            let entityName = '--';
+                                            if (u.role === UserRole.JUDGE && u.judgeId) {
+                                                entityName = state.judges.find(j => j.id === u.judgeId)?.name || 'Judge Profile';
+                                            } else if (u.role === UserRole.TEAM_LEADER && u.teamId) {
+                                                entityName = state.teams.find(t => t.id === u.teamId)?.name || 'Team Profile';
+                                            }
+
+                                            return (
+                                                <tr key={u.id} className="group hover:bg-white/[0.01] transition-colors">
+                                                    <td className="px-10 py-8 text-sm font-black uppercase tracking-tight text-white">{u.username}</td>
+                                                    <td className="px-10 py-8 text-center">
+                                                        <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${roleColors[u.role]}`}>
+                                                            {u.role}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-10 py-8 text-sm font-bold text-zinc-400">{entityName}</td>
+                                                    <td className="px-10 py-8 text-right">
+                                                        <div className="flex justify-end gap-3 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                            <button className="p-2.5 text-zinc-500 hover:text-white transition-colors"><Edit2 size={16}/></button>
+                                                            <button onClick={() => deleteUser(u.id)} className="p-2.5 text-zinc-500 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
-                        </Card>
+                        </div>
+
+                        {/* Scopes Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <ScopeCard 
+                                title="Team Leader Scopes" 
+                                role={UserRole.TEAM_LEADER} 
+                                permissions={state.permissions[UserRole.TEAM_LEADER] || []} 
+                                onToggle={(tab) => handleTogglePermission(UserRole.TEAM_LEADER, tab)} 
+                            />
+                            <ScopeCard 
+                                title="Third Party Scopes" 
+                                role={UserRole.THIRD_PARTY} 
+                                permissions={state.permissions[UserRole.THIRD_PARTY] || []} 
+                                onToggle={(tab) => handleTogglePermission(UserRole.THIRD_PARTY, tab)} 
+                            />
+                            <ScopeCard 
+                                title="Judge Scopes" 
+                                role={UserRole.JUDGE} 
+                                permissions={state.permissions[UserRole.JUDGE] || []} 
+                                onToggle={(tab) => handleTogglePermission(UserRole.JUDGE, tab)} 
+                            />
+                        </div>
                     </div>
                 );
             case 'instructions':
                 return (
                     <div className="space-y-6 animate-in fade-in duration-500">
-                        <SectionTitle title="Contextual Guidance" icon={BookText} color="amber" />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-5 w-1.5 bg-amber-500 rounded-full"></div>
+                            <h3 className="text-xl font-black font-serif text-white uppercase tracking-tight">Contextual Guidance</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {Object.values(TABS).filter(tab => tab !== TABS.PROJECTOR).map(tab => (
-                                <div key={tab} className="p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-white/[0.02]">
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">{tab}</label>
+                                <div key={tab} className="p-6 rounded-[2rem] border border-white/5 bg-[#121412]">
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">{tab}</label>
                                     <textarea 
                                         defaultValue={state.settings.instructions?.[tab] || ''}
                                         onBlur={(e) => updateInstruction({ page: tab, text: e.target.value })}
-                                        className="w-full p-3 bg-zinc-50 dark:bg-black/20 border rounded-xl text-sm min-h-[80px]"
-                                        placeholder={`Help text for ${tab}...`}
+                                        className="w-full p-4 bg-black/20 border border-white/5 rounded-2xl text-sm font-medium text-zinc-400 min-h-[100px] outline-none focus:ring-1 focus:ring-amber-500/30 transition-all"
+                                        placeholder={`Enter guide text for ${tab}...`}
                                     />
                                 </div>
                             ))}
@@ -334,67 +479,39 @@ const GeneralSettings: React.FC = () => {
                     </div>
                 );
             case 'data':
+                const handleBackup = () => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+                    const dlNode = document.createElement('a');
+                    dlNode.setAttribute("href", dataStr);
+                    dlNode.setAttribute("download", `art_fest_backup_${new Date().toISOString().split('T')[0]}.json`);
+                    document.body.appendChild(dlNode);
+                    dlNode.click();
+                    dlNode.remove();
+                };
                 return (
                     <div className="space-y-10 animate-in fade-in duration-500">
-                        <SectionTitle title="Continuity & Sovereignty" icon={Database} color="rose" />
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-5 w-1.5 bg-rose-500 rounded-full"></div>
+                            <h3 className="text-xl font-black font-serif text-white uppercase tracking-tight">Continuity & Sovereignty</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <Card title="Cold Storage">
                                 <div className="space-y-6">
-                                    <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 flex items-start gap-4">
-                                        <Info className="text-indigo-600 shrink-0" size={20} />
-                                        <p className="text-xs font-bold leading-relaxed text-indigo-800 dark:text-indigo-200">
-                                            Export your entire festival state as a JSON file. This includes all participants, teams, items, and settings.
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col gap-3">
-                                        <button 
-                                            onClick={handleBackup}
-                                            className="w-full flex items-center justify-center gap-3 py-4 bg-amazio-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-amazio-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-                                        >
-                                            <Download size={18} /> Export Full Backup
+                                    <p className="text-xs font-medium leading-relaxed text-zinc-400">Manage your festival registry. You can export the entire state for safekeeping or restore from a previously created JSON backup.</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <button onClick={handleBackup} className="flex items-center justify-center gap-3 py-4 bg-amazio-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all"><Download size={18} /> Export Backup</button>
+                                        <button onClick={() => restoreInputRef.current?.click()} className="flex items-center justify-center gap-3 py-4 bg-white/5 text-zinc-300 border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                                            {isRestoring ? <RefreshCw className="animate-spin" size={18} /> : <Upload size={18} />} 
+                                            Restore State
                                         </button>
-                                        <div className="relative">
-                                            <input 
-                                                type="file" 
-                                                accept=".json" 
-                                                className="hidden" 
-                                                ref={restoreInputRef} 
-                                                onChange={handleRestore}
-                                            />
-                                            <button 
-                                                onClick={() => restoreInputRef.current?.click()}
-                                                disabled={isProcessing}
-                                                className="w-full flex items-center justify-center gap-3 py-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all"
-                                            >
-                                                {isProcessing ? <RefreshCw className="animate-spin" size={18}/> : <Upload size={18} />}
-                                                Restore from JSON
-                                            </button>
-                                        </div>
+                                        <input type="file" ref={restoreInputRef} className="hidden" accept=".json" onChange={handleRestoreData} />
                                     </div>
                                 </div>
                             </Card>
-
                             <Card title="Danger Zone">
                                 <div className="space-y-6">
-                                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 flex items-start gap-4">
-                                        <ShieldAlert className="text-rose-600 shrink-0" size={20} />
-                                        <p className="text-xs font-bold leading-relaxed text-rose-800 dark:text-rose-200">
-                                            Resetting the festival will delete all participants, scores, and items. Settings and users will be preserved.
-                                        </p>
-                                    </div>
-                                    <button 
-                                        onClick={async () => {
-                                            setIsProcessing(true);
-                                            await resetFestival();
-                                            setIsProcessing(false);
-                                        }}
-                                        disabled={isProcessing}
-                                        className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all"
-                                    >
-                                        {isProcessing ? <RefreshCw className="animate-spin" size={18}/> : <Trash2 size={18} />}
-                                        Reset Competition Data
-                                    </button>
+                                    <p className="text-xs font-medium leading-relaxed text-rose-400/80">Resetting will delete all competitive data (participants, scores, results). Core settings and users are preserved.</p>
+                                    <button onClick={resetFestival} className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all"><Trash2 size={18} /> Reset Competition Data</button>
                                 </div>
                             </Card>
                         </div>
@@ -405,8 +522,11 @@ const GeneralSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 pb-24">
-            <h2 className="text-5xl font-black font-serif text-amazio-primary dark:text-white tracking-tighter uppercase">Settings</h2>
+        <div className="space-y-2 pb-24 max-w-6xl mx-auto">
+            <div className="mb-10">
+                <h2 className="text-5xl font-black font-serif text-amazio-primary dark:text-white tracking-tighter uppercase leading-none mb-2">Settings</h2>
+                <p className="text-zinc-500 font-medium italic text-lg">System orchestration console.</p>
+            </div>
             {renderTabContent()}
         </div>
     );

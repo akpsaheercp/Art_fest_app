@@ -280,7 +280,6 @@ const JudgementPage: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
     const scoredParticipants = useMemo(() => {
         if (!selectedItem || !state) return [];
         const item = selectedItem;
-        const category = state.categories.find(c => c.id === item.categoryId);
         const gradesConfig = item.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group;
         
         // Find all enrolled participants
@@ -345,7 +344,9 @@ const JudgementPage: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
                 gradePoints: gradePoints,
                 isGroup: entity.isGroup,
                 codeLetter: tab?.codeLetter || '?',
-                rank: 0, prizePoints: 0, totalPoints: 0 // Placeholder
+                rank: 0, prizePoints: 0, totalPoints: 0, // Placeholder
+                // Fix: Added missing property contributesToIndividualTally to match ScoredParticipant interface
+                contributesToIndividualTally: !entity.isGroup
             };
         });
 
@@ -355,6 +356,7 @@ const JudgementPage: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
         
         const rankThresholds = [item.points.first > 0 ? 1 : 0, item.points.second > 0 ? 2 : 0, item.points.third > 0 ? 3 : 0].filter(r => r > 0);
 
+        // Fix: Ensuring returned type is compatible with ScoredParticipant[]
         return sorted.map(score => {
             let rank = 0;
             let prizePoints = 0;
@@ -374,7 +376,7 @@ const JudgementPage: React.FC<{ isMobile: boolean }> = ({ isMobile }) => {
                 rank,
                 prizePoints,
                 totalPoints: prizePoints + score.gradePoints
-            };
+            } as ScoredParticipant;
         }).sort((a,b) => a.codeLetter.localeCompare(b.codeLetter));
 
     }, [selectedItem, state]);

@@ -271,7 +271,8 @@ const ItemTimerPage: React.FC = () => {
                             ? 'bg-amber-500 text-white shadow-amber-500/30' 
                             : 'bg-indigo-600 text-white shadow-indigo-600/30'
                         }`}
-                        style={!isRunning ? { backgroundColor: activeCategoryHex, shadowColor: `${activeCategoryHex}40` } : {}}
+                        // Fix: Removed invalid property shadowColor from style object to match CSSProperties type
+                        style={!isRunning ? { backgroundColor: activeCategoryHex } : {}}
                     >
                         {isRunning ? <Pause size={56} fill="currentColor" /> : <Play size={56} fill="currentColor" className="ml-3" />}
                     </button>

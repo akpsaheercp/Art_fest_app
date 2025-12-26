@@ -18,6 +18,7 @@ import {
 import { DEFAULT_PAGE_PERMISSIONS, TABS } from '../constants';
 
 const defaultSettings: Settings = {
+    festivalName: 'AMAZIO',
     organizingTeam: 'New Art Fest',
     heading: 'Art Fest 2025',
     description: 'A platform for showcasing talent.',
@@ -56,7 +57,7 @@ interface FirebaseContextType {
   settingsSubView: string;
   setSettingsSubView: (v: string) => void;
 
-  login: (username: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>;
   register: (username: string, email: string, pass: string) => Promise<void>;
   setupNewFest: (username: string) => Promise<void>;
   repairOrphanedAccount: () => Promise<void>;
@@ -69,6 +70,7 @@ interface FirebaseContextType {
   deleteMultipleCategories: (ids: string[]) => Promise<void>;
   addTeam: (payload: Omit<Team, 'id'>) => Promise<void>;
   updateTeam: (payload: Team) => Promise<void>;
+  addMultipleTeams: (payloads: Team[]) => Promise<void>;
   deleteMultipleTeams: (ids: string[]) => Promise<void>;
   addItem: (payload: Omit<Item, 'id'>) => Promise<void>;
   updateItem: (payload: Item) => Promise<void>;
@@ -76,6 +78,7 @@ interface FirebaseContextType {
   addParticipant: (payload: Omit<Participant, 'id'>) => Promise<void>;
   updateParticipant: (payload: Participant) => Promise<void>;
   updateMultipleParticipants: (payload: Participant[]) => Promise<void>;
+  addMultipleParticipants: (payloads: Participant[]) => Promise<void>;
   deleteMultipleParticipants: (ids: string[]) => Promise<void>;
   addJudge: (payload: Omit<Judge, 'id'>) => Promise<void>;
   updateJudge: (payload: Judge) => Promise<void>;
@@ -107,6 +110,10 @@ interface FirebaseContextType {
   addAsset: (asset: Omit<Asset, 'id'>) => Promise<void>;
   deleteAsset: (id: string) => Promise<void>;
 
+  addGrade: (payload: { itemType: 'single' | 'group', grade: Omit<Grade, 'id'> }) => Promise<void>;
+  updateGrade: (payload: { itemType: 'single' | 'group', grade: Grade }) => Promise<void>;
+  deleteGrade: (payload: { itemType: 'single' | 'group', gradeId: string }) => Promise<void>;
+
   restoreState: (newState: AppState) => Promise<void>;
   resetFestival: () => Promise<void>;
 }
@@ -130,29 +137,33 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settingsSubView, setSettingsSubView] = useState('details');
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (fUser) => {
+    const unsubAuth = onAuthStateChanged(auth, async (fUser) => {
         setFirebaseUser(fUser);
         if (fUser) {
             const userDoc = doc(db, 'users', fUser.uid);
-            onSnapshot(userDoc, (snap) => {
+            const unsubUser = onSnapshot(userDoc, (snap) => {
                 if (snap.exists()) {
                   setCurrentUser(snap.data() as UserProfile);
                 } else {
                   setCurrentUser(null);
                   setLoading(false);
                 }
+            }, (err) => {
+                console.warn("User profile permission denied (expected on logout)");
+                setCurrentUser(null);
             });
+            return () => unsubUser();
         } else {
             setCurrentUser(null);
             setState(null);
             setLoading(false);
         }
     });
-    return unsub;
+    return unsubAuth;
   }, []);
 
   useEffect(() => {
-    if (!currentUser?.festId) {
+    if (!currentUser?.festId || currentUser.festId.trim() === '') {
         if (!loading && !firebaseUser) setLoading(false);
         setFestError(false);
         return;
@@ -185,6 +196,8 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             setFestError(true);
             setLoading(false);
         }
+    }, (err) => {
+        console.warn("Fest root permission denied (expected on logout)");
     }));
 
     const collectionsToListen = [
@@ -200,6 +213,8 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             (assembledState as any)[colName] = docs;
             setState({ ...assembledState });
             setLoading(false);
+        }, (err) => {
+            console.warn(`Collection ${colName} permission denied (expected on logout)`);
         }));
     });
 
@@ -287,6 +302,12 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateTeam = async (p: any) => await setDoc(festDoc('teams', p.id), p);
 
+  const addMultipleTeams = async (payloads: Team[]) => {
+      const batch = writeBatch(db);
+      payloads.forEach(t => batch.set(festDoc('teams', t.id), t));
+      await batch.commit();
+  };
+
   const deleteMultipleTeams = async (ids: string[]) => {
       const batch = writeBatch(db);
       ids.forEach(id => batch.delete(festDoc('teams', id)));
@@ -314,6 +335,12 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   const updateParticipant = async (p: any) => await setDoc(festDoc('participants', p.id), p);
 
   const updateMultipleParticipants = async (payloads: Participant[]) => {
+      const batch = writeBatch(db);
+      payloads.forEach(p => batch.set(festDoc('participants', p.id), p));
+      await batch.commit();
+  };
+
+  const addMultipleParticipants = async (payloads: Participant[]) => {
       const batch = writeBatch(db);
       payloads.forEach(p => batch.set(festDoc('participants', p.id), p));
       await batch.commit();
@@ -469,32 +496,60 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
   const deleteAsset = async (id: string) => await deleteDoc(festDoc('assets', id));
 
+  const addGrade = async (p: { itemType: 'single' | 'group', grade: Omit<Grade, 'id'> }) => {
+      const id = `grade_${Date.now()}`;
+      const grades = [...(state?.gradePoints[p.itemType] || []), { ...p.grade, id }];
+      await updateDoc(doc(db, 'fests', currentUser!.festId), { [`gradePoints.${p.itemType}`]: grades });
+  };
+
+  const updateGrade = async (p: { itemType: 'single' | 'group', grade: Grade }) => {
+      const grades = state?.gradePoints[p.itemType].map(g => g.id === p.grade.id ? p.grade : g) || [];
+      await updateDoc(doc(db, 'fests', currentUser!.festId), { [`gradePoints.${p.itemType}`]: grades });
+  };
+
+  const deleteGrade = async (p: { itemType: 'single' | 'group', gradeId: string }) => {
+      const grades = state?.gradePoints[p.itemType].filter(g => g.id !== p.gradeId) || [];
+      await updateDoc(doc(db, 'fests', currentUser!.festId), { [`gradePoints.${p.itemType}`]: grades });
+  };
+
   const restoreState = async (newState: AppState) => {
       if (!currentUser?.festId) return;
       const festId = currentUser.festId;
       
-      // 1. Root Document
-      await setDoc(doc(db, 'fests', festId), {
-          id: festId,
-          settings: newState.settings,
-          gradePoints: newState.gradePoints,
-          permissions: newState.permissions,
-          users: newState.users,
-          updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      // 2. Collections (Batched for efficiency and limit compliance)
       const collectionKeys = [
           'categories', 'teams', 'items', 'participants', 'judges', 
           'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results',
           'fonts', 'templates', 'assets'
       ];
 
+      // 1. Wipe all existing subcollections to prevent data overlap/mixing
+      for (const key of collectionKeys) {
+          const q = query(collection(db, 'fests', festId, key));
+          const snap = await getDocs(q);
+          if (snap.docs.length > 0) {
+              for (let i = 0; i < snap.docs.length; i += 500) {
+                  const batch = writeBatch(db);
+                  snap.docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+                  await batch.commit();
+              }
+          }
+      }
+
+      // 2. Update Root Document with core configurations
+      await setDoc(doc(db, 'fests', festId), {
+          id: festId,
+          settings: newState.settings || defaultSettings,
+          gradePoints: newState.gradePoints || { single: [], group: [] },
+          permissions: newState.permissions || DEFAULT_PAGE_PERMISSIONS,
+          users: newState.users || [],
+          updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 3. Populate new data into subcollections
       for (const key of collectionKeys) {
           const items = (newState as any)[key] || [];
           if (items.length === 0) continue;
-
-          // Chunk into groups of 500 for Firestore limits
+          
           for (let i = 0; i < items.length; i += 500) {
               const batch = writeBatch(db);
               const chunk = items.slice(i, i + 500);
@@ -510,7 +565,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const resetFestival = async () => {
       if (!currentUser?.festId || !state) return;
-      if (!confirm("DANGER: This will delete ALL competitive data (participants, scores, results). Continue?")) return;
+      if (!confirm("DANGER: This will delete ALL competitive data. Continue?")) return;
       
       const festId = currentUser.festId;
       const collectionKeys = [
@@ -521,8 +576,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       for (const key of collectionKeys) {
           const q = query(collection(db, 'fests', festId, key));
           const snap = await getDocs(q);
-          
-          // Batch delete in chunks of 500
           for (let i = 0; i < snap.docs.length; i += 500) {
               const batch = writeBatch(db);
               snap.docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
@@ -539,15 +592,16 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       judgesSubView, setJudgesSubView, settingsSubView, setSettingsSubView,
       login, register, setupNewFest, repairOrphanedAccount, logout, uploadFile,
       updateSettings, addCategory, updateCategory, deleteMultipleCategories,
-      addTeam, updateTeam, deleteMultipleTeams,
+      addTeam, updateTeam, addMultipleTeams, deleteMultipleTeams,
       addItem, updateItem, deleteMultipleItems,
-      addParticipant, updateParticipant, updateMultipleParticipants, deleteMultipleParticipants,
+      addParticipant, updateParticipant, updateMultipleParticipants, addMultipleParticipants, deleteMultipleParticipants,
       addJudge, updateJudge, deleteMultipleJudges,
       addCodeLetter, addMultipleCodeLetters, deleteCodeLetter, deleteMultipleCodeLetters,
       addScheduleEvent, setSchedule, updateTabulationEntry, updateMultipleTabulationEntries,
       deleteEventTabulation, updateResultStatus, declareResult, updateItemJudges,
       addUser, updateUser, deleteUser, updatePermissions, updateInstruction, hasPermission,
       addFont, deleteFont, addTemplate, deleteTemplate, addAsset, deleteAsset,
+      addGrade, updateGrade, deleteGrade,
       restoreState, resetFestival
     }}>
       {children}

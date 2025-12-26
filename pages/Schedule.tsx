@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../components/Card';
 import { useFirebase } from '../hooks/useFirebase';
@@ -286,7 +285,8 @@ const SchedulePage: React.FC = () => {
                         <div className="flex justify-between items-center mb-1.5 px-1">
                             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Target Item</label>
                             <label className="flex items-center gap-1.5 cursor-pointer group">
-                                <input type="checkbox" checked={hideScheduled} onChange={e => setHideScheduled(e.target.value)} className="rounded border-zinc-300 dark:border-zinc-700 text-indigo-500 focus:ring-0 h-3 w-3" />
+                                {/* Fix: setHideScheduled with e.target.checked instead of e.target.value */}
+                                <input type="checkbox" checked={hideScheduled} onChange={e => setHideScheduled(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-700 text-indigo-500 focus:ring-0 h-3 w-3" />
                                 <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider group-hover:text-zinc-600 transition-colors">Hide Scheduled</span>
                             </label>
                         </div>

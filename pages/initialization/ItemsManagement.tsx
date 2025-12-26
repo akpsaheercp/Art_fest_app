@@ -325,6 +325,15 @@ const ParticipantFormModal: React.FC<{
 const ItemsManagement: React.FC = () => {
     const { state, currentUser, deleteMultipleItems, deleteMultipleParticipants, globalFilters, globalSearchTerm, itemsSubView: activeTab } = useFirebase();
     
+    // Fix: Create a User compatible object from UserProfile to resolve type mismatches
+    const user: User | null = useMemo(() => currentUser ? {
+        id: currentUser.uid,
+        username: currentUser.username,
+        role: currentUser.role,
+        teamId: currentUser.teamId,
+        judgeId: currentUser.judgeId
+    } : null, [currentUser]);
+
     // Items State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -833,7 +842,8 @@ const ItemsManagement: React.FC = () => {
             )}
 
             <ItemFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} editingItem={editingItem} />
-            <ParticipantFormModal isOpen={isParticipantModalOpen} onClose={() => setIsParticipantModalOpen(false)} editingParticipant={editingParticipant} currentUser={currentUser} />
+            {/* Fix: Passing compatible user object to ParticipantFormModal */}
+            <ParticipantFormModal isOpen={isParticipantModalOpen} onClose={() => setIsParticipantModalOpen(false)} editingParticipant={editingParticipant} currentUser={user} />
         </div>
     );
 };

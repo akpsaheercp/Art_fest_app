@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { TABS, SIDEBAR_GROUPS } from './constants';
 import { useFirebase } from './hooks/useFirebase';
 import { User, UserRole } from './types';
@@ -38,6 +38,15 @@ const App: React.FC = () => {
     settingsSubView, setSettingsSubView,
     setGlobalFilters, setGlobalSearchTerm
   } = useFirebase();
+
+  // Fix: Create a User compatible object from UserProfile to resolve type mismatches
+  const user: User | null = useMemo(() => currentUser ? {
+    id: currentUser.uid,
+    username: currentUser.username,
+    role: currentUser.role,
+    teamId: currentUser.teamId,
+    judgeId: currentUser.judgeId
+  } : null, [currentUser]);
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const hash = decodeURIComponent(window.location.hash.substring(1));
@@ -284,7 +293,8 @@ const App: React.FC = () => {
       case TABS.ITEMS: return <ItemsManagement />;
       case TABS.GRADE_POINTS: return <GradePoints />;
       case TABS.JUDGES_MANAGEMENT: return <JudgesManagement />;
-      case TABS.DATA_ENTRY: return <DataEntryPage currentUser={currentUser} />;
+      // Fix: Passing compatible user object to DataEntryPage
+      case TABS.DATA_ENTRY: return <DataEntryPage currentUser={user} />;
       case TABS.SCHEDULE: return <SchedulePage />;
       case TABS.SCORING_RESULTS: return <JudgementPage isMobile={isMobile} />;
       case TABS.ITEM_TIMER: return <ItemTimerPage />;
@@ -386,12 +396,13 @@ const App: React.FC = () => {
           aria-hidden="true"
         />
       )}
+      {/* Fix: Passing compatible user object to Sidebar and Header */}
       <Sidebar 
         activeTab={activeTab} setActiveTab={handleSetActiveTab} isExpanded={isSidebarExpanded} isOpen={isSidebarOpen}
-        toggleSidebar={toggleSidebarExpansion} isMobile={isMobile} handleLogout={logout} currentUser={currentUser} hasPermission={hasPermission}
+        toggleSidebar={toggleSidebarExpansion} isMobile={isMobile} handleLogout={logout} currentUser={user!} hasPermission={hasPermission}
       />
       <div className={`flex-1 flex flex-col h-screen max-w-full overflow-hidden relative transition-all duration-500 ease-in-out ${state.settings.enableFloatingNav !== false && isMobile && !isSidebarExpanded && !isMobileSticky ? 'pl-0' : ''} ${isMobileSticky ? 'pl-[50px]' : ''}`}>
-        <Header pageTitle={activeTab} onMenuClick={toggleSidebarExpansion} handleLogout={logout} currentUser={currentUser} theme={theme} toggleTheme={toggleTheme} isVisible={isHeaderVisible} />
+        <Header pageTitle={activeTab} onMenuClick={toggleSidebarExpansion} handleLogout={logout} currentUser={user} theme={theme} toggleTheme={toggleTheme} isVisible={isHeaderVisible} />
         <main ref={mainContentRef} onScroll={handleMainScroll} onClick={handleContentClick} className={`flex-1 overflow-y-auto relative scroll-smooth custom-scrollbar ${activeTab === TABS.CREATIVE_STUDIO ? 'p-0' : 'px-2 py-0 sm:px-4 sm:py-3 lg:p-4'} transition-all duration-300`}>
             <div className={`${activeTab === TABS.CREATIVE_STUDIO ? 'flex-1 h-full flex flex-col' : 'max-w-7xl mx-auto md:space-y-4 sm:space-y-6'} transition-all`}>
                 <div className="md:hidden"><div className="h-[env(safe-area-inset-top)]"></div><div className="h-14"></div></div>

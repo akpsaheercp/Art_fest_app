@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useFirebase } from '../../hooks/useFirebase';
 import { Grade, Item, ItemType, Participant, PerformanceType, TabulationEntry, CodeLetter } from '../../types';
-// Add missing Card component import
 import Card from '../../components/Card';
 import { 
     Trash2, Trophy, Users, AlertTriangle, Wand2, RefreshCw, 
@@ -66,7 +65,7 @@ const GradeRangeVisualizer: React.FC<{ grades: Grade[], min: number, max: number
                     <div 
                         key={grade.id} 
                         className="h-full flex flex-col items-center justify-center border-r border-white/20 last:border-0 transition-all duration-300 hover:brightness-110 cursor-help group relative"
-                        style={{ width: `${widthPercent}%`, backgroundColor: `var(--tw-bg-opacity, 1)` }}
+                        style={{ width: `${widthPercent}%` }}
                     >
                         <div className={`absolute inset-0 ${colors.bg}`}></div>
                         <span className="relative z-10 text-[10px] font-black text-white drop-shadow-md">{grade.name}</span>
@@ -121,11 +120,10 @@ const ItemPointOverrideModal: React.FC<{
                             <p className="text-[10px] font-black uppercase text-zinc-400 mt-1 tracking-widest">Specific Point Overrides</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl"><X size={20} className="text-zinc-500"/></button>
+                    <button onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl"><X size={20} className="text-zinc-400"/></button>
                 </div>
                 
                 <div className="flex-grow overflow-y-auto p-8 custom-scrollbar space-y-8">
-                    {/* Prize Overrides */}
                     <div className="space-y-4">
                         <SectionTitle title="Prize Points Override" icon={Trophy} color="amber" />
                         <div className="grid grid-cols-3 gap-6">
@@ -147,7 +145,6 @@ const ItemPointOverrideModal: React.FC<{
                         </div>
                     </div>
 
-                    {/* Grade Overrides */}
                     <div className="space-y-4">
                         <SectionTitle title="Grade Points Override" icon={Medal} color="indigo" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -553,246 +550,140 @@ const CodeRegistry: React.FC = () => {
             </div>
 
             {showPresets && (
-                <div className="mb-6 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 flex flex-wrap gap-2 animate-in slide-in-from-top-2">
-                    <span className="text-[10px] font-black uppercase text-indigo-500 w-full mb-1 ml-1">Quick Presets</span>
-                    <button onClick={() => handleBulkAdd('AZ')} className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-[10px] font-bold border border-indigo-200 uppercase tracking-widest">A-Z</button>
-                    <button onClick={() => handleBulkAdd('09')} className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-[10px] font-bold border border-indigo-200 uppercase tracking-widest">0-9</button>
+                <div className="mb-6 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 flex gap-2 animate-in slide-in-from-top-2">
+                    <button onClick={() => handleBulkAdd('AZ')} className="flex-1 py-3 bg-white dark:bg-zinc-800 rounded-xl text-[10px] font-black uppercase text-indigo-600 shadow-sm">Add A-Z</button>
+                    <button onClick={() => handleBulkAdd('09')} className="flex-1 py-3 bg-white dark:bg-zinc-800 rounded-xl text-[10px] font-black uppercase text-indigo-600 shadow-sm">Add 0-9</button>
                 </div>
             )}
 
-            <div className="space-y-6 flex-grow overflow-hidden flex flex-col">
-                <div className="flex flex-col sm:flex-row gap-3 bg-zinc-50/50 dark:bg-white/[0.02] p-2 rounded-2xl border border-zinc-100 dark:border-zinc-800 shrink-0">
-                    <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleSave()} className="flex-grow p-4 rounded-xl bg-white dark:bg-zinc-900 uppercase font-black text-center text-3xl outline-none focus:ring-2 focus:ring-indigo-500/20 min-w-0" placeholder="?" maxLength={1} />
-                    <button onClick={handleSave} className="px-6 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all whitespace-nowrap">Register</button>
-                </div>
+            <div className="flex gap-2 mb-8">
+                <input value={inputValue} onChange={e => setInputValue(e.target.value.toUpperCase())} className="flex-grow p-4 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-center text-xl font-black outline-none focus:ring-2 focus:ring-rose-500/20" placeholder="A-Z / 0-9" maxLength={1}/>
+                <button onClick={handleSave} className="p-4 bg-rose-600 text-white rounded-2xl shadow-xl shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all"><Plus size={24} strokeWidth={3}/></button>
+            </div>
 
-                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-5 xl:grid-cols-7 gap-3 overflow-y-auto flex-grow custom-scrollbar p-1">
+            <div className="flex-grow overflow-y-auto custom-scrollbar p-1">
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-4 xl:grid-cols-6 gap-2">
                     {allCodes.map(c => (
-                        <div key={c.id} className="relative group aspect-square">
-                            <div onClick={() => { const s = new Set(lotCodes); if(s.has(c.code)) s.delete(c.code); else s.add(c.code); updateSettings({ lotEligibleCodes: Array.from(s).sort() }); }} className={`w-full h-full rounded-2xl flex items-center justify-center font-black text-3xl border cursor-pointer select-none transition-all duration-500 ${lotCodes.has(c.code) ? 'bg-emerald-500 text-white border-emerald-600 shadow-lg scale-[1.05]' : 'bg-white dark:bg-zinc-900/40 text-zinc-300 dark:text-zinc-600 border-zinc-100 dark:border-white/5 hover:border-zinc-300'}`}>{c.code}</div>
-                            <button onClick={(e) => { e.stopPropagation(); deleteCodeLetter(c.id); }} className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white p-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20"><X size={10} strokeWidth={4}/></button>
+                        <div key={c.id} className={`group relative aspect-square rounded-2xl border-2 flex items-center justify-center transition-all ${lotCodes.has(c.code) ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-white dark:bg-[#151816] border-zinc-100 dark:border-white/5'}`}>
+                            <span className="text-xl font-black">{c.code}</span>
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1 bg-black/40 rounded-2xl overflow-hidden backdrop-blur-[2px]">
+                                <button onClick={() => deleteCodeLetter(c.id)} className="self-end p-1 text-white hover:text-rose-400"><Trash2 size={12}/></button>
+                                <button onClick={() => { const next = new Set(lotCodes); if(next.has(c.code)) next.delete(c.code); else next.add(c.code); updateSettings({ lotEligibleCodes: Array.from(next) }); }} className={`w-full py-1 text-[8px] font-black uppercase tracking-tighter rounded ${lotCodes.has(c.code) ? 'bg-white text-indigo-600' : 'bg-indigo-600 text-white'}`}>{lotCodes.has(c.code) ? 'Drafted' : 'Draft'}</button>
+                            </div>
                         </div>
                     ))}
-                    {allCodes.length === 0 && <div className="col-span-full py-12 text-center opacity-20 italic text-[10px] uppercase font-bold border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">Awaiting registration</div>}
                 </div>
             </div>
-            <div className="mt-6 pt-6 border-t border-zinc-50 dark:border-white/5 shrink-0">
-                <div className="flex items-start gap-3"><Info size={14} className="text-zinc-400 shrink-0 mt-0.5" /><p className="text-[9px] text-zinc-500 leading-relaxed font-bold uppercase tracking-widest">Tap a code to toggle its availability in the Lot System. Colored codes are eligible for spinning.</p></div>
-            </div>
         </div>
     );
 };
 
-// --- SECTION: Points Rules (Grades & Prizes) ---
+// --- SECTION: Grade Points Rules Editor ---
 
-const GlobalPrizeEditor: React.FC<{ type: 'single' | 'group' }> = ({ type }) => {
-    const { state, updateSettings } = useFirebase();
-    const defaults = state?.settings.defaultPoints[type] || { first: 0, second: 0, third: 0 };
-    
-    const handleChange = (key: 'first' | 'second' | 'third', val: string) => {
-        const next = { ...defaults, [key]: +val };
-        updateSettings({ defaultPoints: { ...state?.settings.defaultPoints, [type]: next } });
-    };
-
-    return (
-        <div className="p-6 rounded-3xl bg-zinc-50 dark:bg-white/[0.01] border border-zinc-100 dark:border-zinc-800">
-            <h4 className="text-[10px] font-black uppercase text-zinc-400 tracking-[0.2em] mb-4 flex items-center gap-2">
-                <Trophy size={14} className="text-amber-500"/> Global {type} Prizes
-            </h4>
-            <div className="grid grid-cols-3 gap-4">
-                {[
-                    { k: 'first', l: '1st', c: 'text-amber-500' },
-                    { k: 'second', l: '2nd', c: 'text-slate-400' },
-                    { k: 'third', l: '3rd', c: 'text-orange-500' }
-                ].map(p => (
-                    <div key={p.k} className="space-y-1">
-                        <span className={`block text-[8px] font-black uppercase text-center ${p.c}`}>{p.l}</span>
-                        <input 
-                            type="number" 
-                            value={(defaults as any)[p.k]} 
-                            onChange={e => handleChange(p.k as any, e.target.value)}
-                            className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-800 border text-center font-black text-sm"
-                        />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const GradeRuleEditor: React.FC<{ itemType: 'single' | 'group' }> = ({ itemType }) => {
+const GradeRules: React.FC<{ type: 'single' | 'group' }> = ({ type }) => {
     const { state, addGrade, updateGrade, deleteGrade } = useFirebase();
-    const grades = state?.gradePoints[itemType] || [];
-    const [formData, setFormData] = useState<Omit<Grade, 'id'>>({ name: '', lowerLimit: 0, upperLimit: 100, points: 0 });
+    const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    
+    const [formData, setFormData] = useState<Omit<Grade, 'id'>>({ name: '', lowerLimit: 0, upperLimit: 100, points: 0 });
 
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        if(!formData.name) return;
-        if (editingId) { updateGrade({ itemType, grade: { ...formData, id: editingId } }); setEditingId(null); } 
-        else { addGrade({ itemType, grade: formData }); }
-        setFormData({ name: '', lowerLimit: 0, upperLimit: 100, points: 0 }); 
+    const grades = state?.gradePoints[type] || [];
+
+    const handleSave = async () => {
+        if (!formData.name.trim()) return;
+        if (editingId) await updateGrade({ itemType: type, grade: { ...formData, id: editingId } });
+        else await addGrade({ itemType: type, grade: formData });
+        setIsAdding(false); setEditingId(null); setFormData({ name: '', lowerLimit: 0, upperLimit: 100, points: 0 });
     };
 
     return (
-        <div className="bg-white/80 dark:bg-white/[0.02] backdrop-blur-xl rounded-[2.5rem] border border-amazio-primary/5 dark:border-white/5 p-8 shadow-glass-light dark:shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="font-serif font-black text-lg text-amazio-primary dark:text-white uppercase tracking-tighter capitalize">Global {itemType} Grade Tiers</h3>
-                <span className="px-4 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] font-black uppercase tracking-widest border">
-                    {grades.length} Active
-                </span>
-            </div>
-            <GradeRangeVisualizer grades={grades} min={0} max={100} />
-            <div className="mt-8 space-y-3">
-                {grades.sort((a,b) => b.lowerLimit - a.lowerLimit).map((grade) => {
-                    const colors = getGradeColor(grade.name);
-                    return (
-                        <div key={grade.id} className={`group flex items-center justify-between p-4 rounded-3xl transition-all ${colors.light}`}>
-                            <div className="flex items-center gap-5">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-xl shadow-lg ${colors.bg}`}>{grade.name.charAt(0)}</div>
-                                <div>
-                                    <div className="text-[9px] text-zinc-400 font-black uppercase tracking-widest opacity-60">Range</div>
-                                    <div className="font-mono font-black text-amazio-primary dark:text-zinc-200 text-lg">{grade.lowerLimit}% - {grade.upperLimit}%</div>
-                                </div>
-                                <div className="text-right ml-4">
-                                    <div className="text-[9px] text-zinc-400 font-black uppercase tracking-widest opacity-60">Pts</div>
-                                    <div className={`font-black text-lg ${colors.text}`}>{grade.points}</div>
-                                </div>
+        <Card title={`${type === 'single' ? 'Individual' : 'Group'} Point Tiers`}>
+            <div className="space-y-6">
+                <div className="space-y-3">
+                    {grades.map(g => (
+                        <div key={g.id} className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-zinc-50 dark:bg-black/20 rounded-2xl border border-zinc-100 dark:border-white/5 transition-all hover:bg-white dark:hover:bg-zinc-800/40">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-lg ${getGradeColor(g.name).bg}`}>{g.name.charAt(0)}</div>
+                            <div className="flex-grow text-center sm:text-left">
+                                <h4 className="font-black text-amazio-primary dark:text-white uppercase tracking-tight">{g.name} Grade</h4>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{g.lowerLimit}% - {g.upperLimit}% Range</p>
                             </div>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                <button onClick={() => { setFormData(grade); setEditingId(grade.id); }} className="p-2 text-zinc-400 hover:text-emerald-600"><Edit2 size={16}/></button>
-                                <button onClick={() => deleteGrade({itemType, gradeId: grade.id})} className="p-2 text-zinc-400 hover:text-rose-600"><Trash2 size={16}/></button>
+                            <div className="flex items-center gap-6">
+                                <div className="text-right">
+                                    <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 leading-none">{g.points}</div>
+                                    <div className="text-[8px] font-black uppercase text-zinc-400 mt-1">Points</div>
+                                </div>
+                                <div className="flex gap-1">
+                                    <button onClick={() => { setEditingId(g.id); setFormData(g); setIsAdding(true); }} className="p-2 text-zinc-400 hover:text-indigo-500 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all shadow-sm"><Edit2 size={16}/></button>
+                                    <button onClick={() => deleteGrade({ itemType: type, gradeId: g.id })} className="p-2 text-zinc-400 hover:text-rose-500 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all shadow-sm"><Trash2 size={16}/></button>
+                                </div>
                             </div>
                         </div>
-                    );
-                })}
+                    ))}
+                    {!isAdding && (
+                        <button onClick={() => setIsAdding(true)} className="w-full py-4 border-2 border-dashed border-zinc-200 dark:border-white/5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 hover:text-amazio-primary hover:border-amazio-primary/30 transition-all flex items-center justify-center gap-2 group"><Plus size={16} className="group-hover:rotate-90 transition-transform"/> Add Rule Segment</button>
+                    )}
+                </div>
+
+                {isAdding && (
+                    <div className="p-6 bg-white dark:bg-zinc-900 rounded-[2.5rem] border-2 border-indigo-500 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+                            <div><label className="text-[9px] font-black text-zinc-400 uppercase mb-2 block ml-1">Grade</label><input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-zinc-700 font-bold text-center" placeholder="A+"/></div>
+                            <div><label className="text-[9px] font-black text-zinc-400 uppercase mb-2 block ml-1">Min %</label><input type="number" value={formData.lowerLimit} onChange={e => setFormData({...formData, lowerLimit: +e.target.value})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-zinc-700 font-bold text-center" /></div>
+                            <div><label className="text-[9px] font-black text-zinc-400 uppercase mb-2 block ml-1">Max %</label><input type="number" value={formData.upperLimit} onChange={e => setFormData({...formData, upperLimit: +e.target.value})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-zinc-700 font-bold text-center" /></div>
+                            <div><label className="text-[9px] font-black text-zinc-400 uppercase mb-2 block ml-1">Points</label><input type="number" value={formData.points} onChange={e => setFormData({...formData, points: +e.target.value})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-zinc-700 font-bold text-center" /></div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleSave} className="flex-grow py-3.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Apply Tier</button>
+                            <button onClick={() => { setIsAdding(false); setEditingId(null); }} className="px-6 py-3.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-widest">Cancel</button>
+                        </div>
+                    </div>
+                )}
+
+                <GradeRangeVisualizer grades={grades} min={0} max={100} />
             </div>
-            <form onSubmit={handleSave} className="mt-8 p-6 rounded-[2rem] bg-zinc-50/50 dark:bg-white/[0.01] border border-zinc-100 dark:border-zinc-800 flex flex-col gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <input type="text" placeholder="Grade" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full rounded-xl p-3 text-sm font-bold border outline-none bg-white dark:bg-zinc-800" required/>
-                    <input type="number" placeholder="Min %" value={formData.lowerLimit} onChange={e => setFormData({...formData, lowerLimit: +e.target.value})} className="w-full rounded-xl p-3 text-sm font-bold border outline-none bg-white dark:bg-zinc-800"/>
-                    <input type="number" placeholder="Max %" value={formData.upperLimit} onChange={e => setFormData({...formData, upperLimit: +e.target.value})} className="w-full rounded-xl p-3 text-sm font-bold border outline-none bg-white dark:bg-zinc-800"/>
-                    <input type="number" placeholder="Pts" value={formData.points} onChange={e => setFormData({...formData, points: +e.target.value})} className="w-full rounded-xl p-3 text-sm font-bold border outline-none bg-white dark:bg-zinc-800"/>
-                </div>
-                <button type="submit" className="w-full py-4 bg-amazio-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">
-                    {editingId ? 'Update Range' : 'Add Rule'}
-                </button>
-            </form>
-        </div>
-    );
-};
-
-const ItemOverrideSection: React.FC = () => {
-    const { state, globalSearchTerm, globalFilters } = useFirebase();
-    const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-
-    const filteredItems = useMemo(() => {
-        if (!state) return [];
-        return state.items.filter(i => {
-            const matchSearch = i.name.toLowerCase().includes(globalSearchTerm.toLowerCase());
-            const matchCat = globalFilters.categoryId.length > 0 ? globalFilters.categoryId.includes(i.categoryId) : true;
-            return matchSearch && matchCat;
-        }).sort((a,b) => a.name.localeCompare(b.name));
-    }, [state, globalSearchTerm, globalFilters]);
-
-    if (!state) return null;
-
-    const selectedItem = state.items.find(i => i.id === selectedItemId);
-
-    return (
-        <Card title="Item Point Overrides" action={<span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{filteredItems.length} Scopes</span>}>
-            <div className="space-y-6">
-                <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-4">
-                    <Info size={18} className="text-indigo-500 shrink-0 mt-0.5" />
-                    <p className="text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300 font-bold uppercase tracking-wider">
-                        Use the global header search/filter to narrow down items. Tap an item below to refine its specific prize and grade point values.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto custom-scrollbar p-1">
-                    {filteredItems.map(item => {
-                        const hasOverrides = (item.gradePointsOverride && Object.keys(item.gradePointsOverride).length > 0);
-                        const isCustomPrizes = JSON.stringify(item.points) !== JSON.stringify(state.settings.defaultPoints[item.type === ItemType.SINGLE ? 'single' : 'group']);
-                        
-                        return (
-                            <div 
-                                key={item.id} 
-                                onClick={() => setSelectedItemId(item.id)}
-                                className={`p-5 rounded-[2rem] border transition-all cursor-pointer group flex flex-col justify-between ${selectedItemId === item.id ? 'bg-indigo-500 border-indigo-400 shadow-xl' : 'bg-white dark:bg-[#121412] border-zinc-100 dark:border-white/5 hover:border-zinc-300'}`}
-                            >
-                                <div>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${selectedItemId === item.id ? 'bg-white/20 text-white border-white/30 border' : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-400 border border-zinc-200 dark:border-zinc-700'}`}>
-                                            {state.categories.find(c => c.id === item.categoryId)?.name}
-                                        </div>
-                                        {(hasOverrides || isCustomPrizes) && <Star size={12} className={selectedItemId === item.id ? 'text-white' : 'text-amber-500'} fill="currentColor"/>}
-                                    </div>
-                                    <h4 className={`text-sm font-black uppercase tracking-tight truncate ${selectedItemId === item.id ? 'text-white' : 'text-amazio-primary dark:text-zinc-100'}`}>
-                                        {item.name}
-                                    </h4>
-                                </div>
-                                <div className={`mt-4 pt-3 border-t flex justify-between items-center ${selectedItemId === item.id ? 'border-white/10' : 'border-zinc-50 dark:border-zinc-800'}`}>
-                                    <div className="flex gap-2">
-                                        <div className={`text-[10px] font-black ${selectedItemId === item.id ? 'text-white' : 'text-amber-500'}`}>{item.points.first} <span className="opacity-50 tracking-tighter">1ST</span></div>
-                                        <div className={`text-[10px] font-black ${selectedItemId === item.id ? 'text-white' : 'text-slate-400'}`}>{item.points.second} <span className="opacity-50 tracking-tighter">2ND</span></div>
-                                        <div className={`text-[10px] font-black ${selectedItemId === item.id ? 'text-white' : 'text-orange-500'}`}>{item.points.third} <span className="opacity-50 tracking-tighter">3RD</span></div>
-                                    </div>
-                                    <Edit2 size={12} className={selectedItemId === item.id ? 'text-white' : 'text-zinc-300 group-hover:text-indigo-500'} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {filteredItems.length === 0 && <div className="col-span-full py-12 text-center opacity-30 italic text-xs uppercase font-bold tracking-[0.2em]">No items match current filter</div>}
-                </div>
-            </div>
-            {selectedItemId && selectedItem && (
-                <ItemPointOverrideModal 
-                    item={selectedItem} 
-                    onClose={() => setSelectedItemId(null)} 
-                    grades={selectedItem.type === ItemType.SINGLE ? state.gradePoints.single : state.gradePoints.group}
-                />
-            )}
         </Card>
     );
 };
 
+// --- MAIN PAGE COMPONENT ---
+
 const GradePoints: React.FC = () => {
-    const { state, gradeSubView: activeView } = useFirebase();
-    if (!state) return null;
+    const { gradeSubView: view } = useFirebase();
+
     return (
-        <div className="space-y-10 pb-24 animate-in fade-in duration-700 relative">
+        <div className="space-y-8 pb-24 animate-in fade-in duration-500 relative">
             <div className="hidden md:flex flex-col sm:flex-row sm:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-5xl font-black font-serif text-amazio-primary dark:text-white tracking-tighter uppercase leading-none">Points Rules</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-3 font-medium text-lg italic">Configure scoring heuristics and identity registries.</p>
+                    <h2 className="text-5xl font-black font-serif text-amazio-primary dark:text-white tracking-tighter uppercase leading-none">Codes & Grading</h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-3 font-medium text-lg italic">Distribution rules for identity lots and point tiers.</p>
                 </div>
             </div>
-            <div className="animate-in slide-in-from-bottom-4 duration-700">
-                {activeView === 'CODES' ? (
-                    <div className="space-y-10">
+
+            {view === 'CODES' ? (
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start animate-in slide-in-from-left duration-500">
+                    <div className="xl:col-span-8 flex flex-col gap-8">
                         <LotMachine />
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-                            <CodeRegistry />
-                            <BulkCodeAssigner />
+                        <BulkCodeAssigner />
+                    </div>
+                    <div className="xl:col-span-4 h-full">
+                        <CodeRegistry />
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-right duration-500">
+                    <GradeRules type="single" />
+                    <GradeRules type="group" />
+                    <div className="lg:col-span-2 p-10 bg-amber-50 dark:bg-amber-900/10 rounded-[3rem] border-2 border-dashed border-amber-200 dark:border-white/5">
+                        <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 shrink-0 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20"><Info size={32}/></div>
+                            <div>
+                                <h3 className="text-xl font-black font-serif uppercase tracking-tight text-amber-900 dark:text-amber-200">Point Distribution Protocol</h3>
+                                <p className="text-sm font-medium text-amber-800/60 dark:text-amber-400/60 leading-relaxed mt-1 italic">Grades are calculated automatically based on the mean percentage of judge entries. Point tallies synchronize across the global leaderboard instantly upon result declaration.</p>
+                            </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="space-y-10">
-                        {/* Global Defaults */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <GlobalPrizeEditor type="single" />
-                            <GlobalPrizeEditor type="group" />
-                        </div>
-                        {/* Grade Tiers */}
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-                            <GradeRuleEditor itemType="single" />
-                            <GradeRuleEditor itemType="group" />
-                        </div>
-                        {/* Item Overrides */}
-                        <ItemOverrideSection />
-                    </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };

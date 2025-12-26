@@ -76,6 +76,7 @@ export interface Asset {
 }
 
 export interface Settings {
+  festivalName: string;
   organizingTeam: string;
   heading: string;
   description: string;

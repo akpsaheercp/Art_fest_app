@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Menu, LogOut, ChevronDown, Sun, Moon, Laptop, Search, X, Command, ArrowLeft, SlidersHorizontal, Filter, LayoutList, Users, Layers, Milestone, Gavel, Settings as SettingsIcon, Hash, Medal, Info, Palette, BookText, Database, ShieldCheck, LayoutGrid, User as UserIcon, ClipboardList } from 'lucide-react';
+import { Menu, LogOut, ChevronDown, Sun, Moon, Laptop, Search, X, Command, ArrowLeft, SlidersHorizontal, Filter, LayoutList, Users, Layers, Milestone, Gavel, Settings as SettingsIcon, Hash, Medal, Info, Palette, BookText, Database, ShieldCheck, LayoutGrid, User as UserIcon, ClipboardList, Wifi, Maximize2 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useFirebase } from '../hooks/useFirebase';
 import { PAGES_WITH_GLOBAL_FILTERS, TABS, TAB_DISPLAY_NAMES } from '../constants';
@@ -20,13 +20,9 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, c
     const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-    const [isSubNavOpen, setIsSubNavOpen] = useState(false);
     
     const profileRef = useRef<HTMLDivElement>(null);
     const themeRef = useRef<HTMLDivElement>(null);
-    const subNavRef = useRef<HTMLDivElement>(null);
-    const searchInputRef = useRef<HTMLInputElement>(null);
-    const mobileSearchInputRef = useRef<HTMLInputElement>(null);
     
     const { 
         state, setGlobalFilters, globalSearchTerm, setGlobalSearchTerm, 
@@ -38,17 +34,11 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, c
     } = useFirebase();
     
     const showGlobalFilters = PAGES_WITH_GLOBAL_FILTERS.includes(pageTitle) || pageTitle === TABS.SCHEDULE;
-    const isTeamLeader = currentUser?.role === UserRole.TEAM_LEADER;
-    const displayTitle = TAB_DISPLAY_NAMES[pageTitle] || pageTitle;
 
     const isSearchablePage = [
         TABS.ITEMS, TABS.DATA_ENTRY, TABS.SCHEDULE, 
         TABS.SCORING_RESULTS, TABS.POINTS, TABS.GRADE_POINTS,
         TABS.ITEM_TIMER
-    ].includes(pageTitle);
-
-    const hasSubNavigation = [
-        TABS.DATA_ENTRY, TABS.ITEMS, TABS.GRADE_POINTS, TABS.JUDGES_MANAGEMENT, TABS.GENERAL_SETTINGS
     ].includes(pageTitle);
 
     useEffect(() => {
@@ -59,245 +49,120 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, c
             if (themeRef.current && !themeRef.current.contains(event.target as Node)) {
                 setIsThemeMenuOpen(false);
             }
-            if (subNavRef.current && !subNavRef.current.contains(event.target as Node)) {
-                setIsSubNavOpen(false);
-            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                if (window.innerWidth < 768) {
-                    setIsMobileSearchOpen(true);
-                } else {
-                    searchInputRef.current?.focus();
-                }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
-
-    useEffect(() => {
-        if (isMobileSearchOpen) {
-            setTimeout(() => mobileSearchInputRef.current?.focus(), 100);
-        }
-    }, [isMobileSearchOpen]);
-
-    useEffect(() => {
-        if (isTeamLeader && currentUser?.teamId) {
-            setGlobalFilters(prev => ({...prev, teamId: [currentUser.teamId!]}));
-        }
-    }, [isTeamLeader, currentUser, setGlobalFilters]);
-
-    const getThemeIcon = () => {
-        if (theme === 'light') return <Sun className="h-4 w-4" />;
-        if (theme === 'dark') return <Moon className="h-4 w-4" />;
-        return <Laptop className="h-4 w-4" />;
-    };
-
-    const visibilityClass = isVisible 
-        ? 'translate-y-0 opacity-100' 
-        : '-translate-y-full opacity-0 md:translate-y-0 md:opacity-100';
-
-    // Sub-nav mapping based on current main page
     const subNavOptions = useMemo(() => {
         switch(pageTitle) {
             case TABS.DATA_ENTRY:
                 return [
-                    { id: 'ITEMS', label: 'By Items', icon: ClipboardList, active: dataEntryView === 'ITEMS', onClick: () => setDataEntryView('ITEMS') },
-                    { id: 'PARTICIPANTS', label: 'By Participants', icon: Users, active: dataEntryView === 'PARTICIPANTS', onClick: () => setDataEntryView('PARTICIPANTS') }
+                    { id: 'ITEMS', label: 'BY ITEMS', icon: ClipboardList, active: dataEntryView === 'ITEMS', onClick: () => setDataEntryView('ITEMS'), color: 'emerald' },
+                    { id: 'PARTICIPANTS', label: 'BY PARTICIPANTS', icon: Users, active: dataEntryView === 'PARTICIPANTS', onClick: () => setDataEntryView('PARTICIPANTS'), color: 'emerald' }
                 ];
             case TABS.ITEMS:
                 return [
-                    { id: 'ITEMS', label: 'Item Registry', icon: LayoutList, active: itemsSubView === 'ITEMS', onClick: () => setItemsSubView('ITEMS') },
-                    { id: 'PARTICIPANTS', label: 'Participants Registry', icon: Users, active: itemsSubView === 'PARTICIPANTS', onClick: () => setItemsSubView('PARTICIPANTS') }
+                    { id: 'ITEMS', label: 'ITEM REGISTRY', icon: LayoutList, active: itemsSubView === 'ITEMS', onClick: () => setItemsSubView('ITEMS'), color: 'teal' },
+                    { id: 'PARTICIPANTS', label: 'PARTICIPANTS REGISTRY', icon: Users, active: itemsSubView === 'PARTICIPANTS', onClick: () => setItemsSubView('PARTICIPANTS'), color: 'teal' }
                 ];
             case TABS.GRADE_POINTS:
                 return [
-                    { id: 'CODES', label: 'Registry & Lots', icon: Hash, active: gradeSubView === 'CODES', onClick: () => setGradeSubView('CODES') },
-                    { id: 'GRADES', label: 'Points Rules', icon: Medal, active: gradeSubView === 'GRADES', onClick: () => setGradeSubView('GRADES') }
+                    { id: 'CODES', label: 'REGISTRY & LOTS', icon: Hash, active: gradeSubView === 'CODES', onClick: () => setGradeSubView('CODES'), color: 'amber' },
+                    { id: 'GRADES', label: 'POINTS RULES', icon: Medal, active: gradeSubView === 'GRADES', onClick: () => setGradeSubView('GRADES'), color: 'amber' }
                 ];
             case TABS.JUDGES_MANAGEMENT:
                 return [
-                    { id: 'ASSIGNMENTS', label: 'Assignments', icon: ShieldCheck, active: judgesSubView === 'ASSIGNMENTS', onClick: () => setJudgesSubView('ASSIGNMENTS') },
-                    { id: 'REGISTRY', label: 'Judge Registry', icon: UserIcon, active: judgesSubView === 'REGISTRY', onClick: () => setJudgesSubView('REGISTRY') }
+                    { id: 'ASSIGNMENTS', label: 'ASSIGNMENTS', icon: ShieldCheck, active: judgesSubView === 'ASSIGNMENTS', onClick: () => setJudgesSubView('ASSIGNMENTS'), color: 'indigo' },
+                    { id: 'REGISTRY', label: 'JUDGE REGISTRY', icon: UserIcon, active: judgesSubView === 'REGISTRY', onClick: () => setJudgesSubView('REGISTRY'), color: 'indigo' }
                 ];
             case TABS.GENERAL_SETTINGS:
                 return [
-                    { id: 'details', label: 'Event Details', icon: Info, active: settingsSubView === 'details', onClick: () => setSettingsSubView('details') },
-                    { id: 'display', label: 'Display & Layout', icon: Palette, active: settingsSubView === 'display', onClick: () => setSettingsSubView('display') },
-                    { id: 'users', label: 'Users & Access', icon: Users, active: settingsSubView === 'users', onClick: () => setSettingsSubView('users') },
-                    { id: 'instructions', label: 'Instructions', icon: BookText, active: settingsSubView === 'instructions', onClick: () => setSettingsSubView('instructions') },
-                    { id: 'data', label: 'Continuity', icon: Database, active: settingsSubView === 'data', onClick: () => setSettingsSubView('data') }
+                    { id: 'details', label: 'EVENT DETAILS', icon: Info, active: settingsSubView === 'details', onClick: () => setSettingsSubView('details'), color: 'zinc' },
+                    { id: 'display', label: 'DISPLAY & LAYOUT', icon: Palette, active: settingsSubView === 'display', onClick: () => setSettingsSubView('display'), color: 'zinc' },
+                    { id: 'users', label: 'USERS & ACCESS', icon: Users, active: settingsSubView === 'users', onClick: () => setSettingsSubView('users'), color: 'indigo' },
+                    { id: 'instructions', label: 'INSTRUCTIONS', icon: BookText, active: settingsSubView === 'instructions', onClick: () => setSettingsSubView('instructions'), color: 'zinc' },
+                    { id: 'data', label: 'CONTINUITY', icon: Database, active: settingsSubView === 'data', onClick: () => setSettingsSubView('data'), color: 'zinc' }
                 ];
             default: return [];
         }
     }, [pageTitle, dataEntryView, itemsSubView, gradeSubView, judgesSubView, settingsSubView, setDataEntryView, setItemsSubView, setGradeSubView, setJudgesSubView, setSettingsSubView]);
 
-    const activeSubLabel = subNavOptions.find(o => o.active)?.label || 'Sections';
-
     return (
-        <header className={`fixed md:relative top-0 left-0 right-0 z-40 w-full transition-all duration-300 ease-in-out transform-gpu bg-amazio-light-bg dark:bg-amazio-bg md:bg-transparent ${visibilityClass}`}>
-            <div className="md:bg-amazio-light-bg/90 md:dark:bg-amazio-bg/90 md:backdrop-blur-xl px-4 flex items-center justify-between gap-2 transition-colors duration-300 relative z-50 overflow-visible pt-[env(safe-area-inset-top)] pb-0 h-14 md:h-16">
-                
-                {isMobileSearchOpen && isSearchablePage ? (
-                    <div className="flex items-center w-full gap-2 animate-in slide-in-from-right-4 duration-300 py-1">
-                        <button 
-                            onClick={() => { setIsMobileSearchOpen(false); setGlobalSearchTerm(''); }}
-                            className="p-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
-                        >
-                            <ArrowLeft size={20} />
-                        </button>
-                        <div className="relative flex-grow flex items-center bg-zinc-100 dark:bg-white/5 rounded-2xl border border-indigo-500/30">
-                            <Search className="absolute left-3 text-indigo-500" size={16} />
-                            <input 
-                                ref={mobileSearchInputRef}
-                                type="text"
-                                placeholder={`Search...`}
-                                value={globalSearchTerm}
-                                onChange={(e) => setGlobalSearchTerm(e.target.value)}
-                                className="w-full bg-transparent pl-10 pr-10 py-2 text-sm font-bold text-amazio-primary dark:text-zinc-100 outline-none"
-                            />
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex items-center gap-3 min-w-0">
-                            <button 
-                                onClick={onMenuClick} 
-                                className="lg:hidden p-1 rounded-lg text-zinc-800 dark:text-zinc-400 flex-shrink-0"
+        <header className={`fixed md:relative top-0 left-0 right-0 z-40 w-full transition-all duration-300 ease-in-out bg-amazio-bg border-b border-white/5 ${isVisible ? 'translate-y-0' : '-translate-y-full md:translate-y-0'} h-14 md:h-16 flex items-center px-6`}>
+            
+            <div className="flex items-center gap-6 flex-shrink-0">
+                <button onClick={onMenuClick} className="lg:hidden p-1 rounded-lg text-zinc-400"><Menu size={20} /></button>
+                <div className="flex items-center gap-2.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full">
+                    <Wifi size={10} className="text-emerald-500 animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/80">Synced</span>
+                </div>
+            </div>
+
+            {/* Main Horizontal Sub-Navigation */}
+            <div className="flex-grow flex justify-center overflow-x-auto no-scrollbar px-4">
+                <div className="flex items-center gap-1">
+                    {subNavOptions.map(opt => {
+                        const Icon = opt.icon;
+                        const activeColors: Record<string, string> = {
+                            emerald: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+                            teal: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+                            amber: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+                            indigo: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+                            zinc: 'bg-white/5 text-white border-white/10'
+                        };
+                        return (
+                            <button
+                                key={opt.id}
+                                onClick={opt.onClick}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${opt.active ? activeColors[opt.color] || 'bg-white/10 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
                             >
-                                <Menu className="h-5 w-5" />
+                                <Icon size={14} strokeWidth={2.5} />
+                                <span className="hidden sm:inline">{opt.label}</span>
+                                {opt.active && <div className={`w-1 h-1 rounded-full ${opt.color === 'zinc' ? 'bg-white' : `bg-${opt.color}-500`}`}></div>}
                             </button>
-                            <h1 className="text-sm md:text-lg font-black font-serif text-amazio-primary dark:text-white tracking-tight truncate">
-                                {displayTitle}
-                            </h1>
-                        </div>
+                        );
+                    })}
+                </div>
+            </div>
 
-                        {isSearchablePage && (
-                            <div className={`hidden md:flex flex-grow justify-center transition-all duration-500 ${isSearchFocused ? 'max-w-xl' : 'max-w-md'}`}>
-                                <div className={`relative w-full flex items-center transition-all duration-300 rounded-2xl border ${isSearchFocused ? 'bg-white dark:bg-zinc-900 border-indigo-500/50 shadow-lg' : 'bg-zinc-100 dark:bg-white/5 border-transparent'}`}>
-                                    <Search className={`absolute left-3.5 ${isSearchFocused ? 'text-indigo-500' : 'text-zinc-400'}`} size={16} strokeWidth={2.5} />
-                                    <input 
-                                        ref={searchInputRef}
-                                        type="text"
-                                        placeholder={`Search ${displayTitle}...`}
-                                        value={globalSearchTerm}
-                                        onChange={(e) => setGlobalSearchTerm(e.target.value)}
-                                        onFocus={() => setIsSearchFocused(true)}
-                                        onBlur={() => setIsSearchFocused(false)}
-                                        className="w-full bg-transparent pl-10 pr-12 py-2 text-sm font-bold text-amazio-primary dark:text-zinc-100 outline-none"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        
-                        {!isSearchablePage && <div className="flex-grow hidden md:block"></div>}
-
-                        <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
-                            {hasSubNavigation && (
-                                <div className="relative" ref={subNavRef}>
-                                    <button 
-                                        onClick={() => setIsSubNavOpen(!isSubNavOpen)}
-                                        className={`p-2 rounded-xl transition-all flex items-center gap-2 border ${isSubNavOpen ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg' : 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800'}`}
-                                        title="Page Sections"
-                                    >
-                                        <Milestone size={18} strokeWidth={2.5} />
-                                        <span className="text-[10px] font-black uppercase hidden sm:inline">{activeSubLabel}</span>
-                                        <ChevronDown size={12} className={`transition-transform duration-300 ${isSubNavOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    
-                                    {isSubNavOpen && (
-                                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#151816] border border-amazio-primary/10 dark:border-white/10 rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                                            <div className="px-3 py-2 border-b border-amazio-primary/5 dark:border-white/5 mb-1">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Navigate Scopes</p>
-                                            </div>
-                                            {subNavOptions.map(opt => (
-                                                <button 
-                                                    key={opt.id}
-                                                    onClick={() => { opt.onClick(); setIsSubNavOpen(false); }}
-                                                    className={`w-full flex items-center justify-between px-3 py-2.5 text-xs transition-colors ${opt.active ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-bold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5'}`}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <opt.icon size={16} />
-                                                        <span>{opt.label}</span>
-                                                    </div>
-                                                    {opt.active && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {isSearchablePage && (
-                                <button 
-                                    onClick={() => setIsMobileSearchOpen(true)}
-                                    className="md:hidden p-2 rounded-xl text-zinc-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                                >
-                                    <Search size={18} />
-                                </button>
-                            )}
-
-                            {showGlobalFilters && (
-                                <UniversalFilter pageTitle={pageTitle} />
-                            )}
-
-                            <div className="relative" ref={themeRef}>
-                                <button 
-                                    onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
-                                    className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/10' : 'text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10'}`}
-                                >
-                                    {getThemeIcon()}
-                                </button>
-                                {isThemeMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-[#151816] border border-amazio-primary/10 dark:border-white/10 rounded-xl shadow-xl py-1 z-50">
-                                        <button onClick={() => { toggleTheme('light'); setIsThemeMenuOpen(false); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme === 'light' ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                                            <Sun size={14} /> Light
-                                        </button>
-                                        <button onClick={() => { toggleTheme('dark'); setIsThemeMenuOpen(false); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme === 'dark' ? 'text-emerald-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                                            <Moon size={14} /> Dark
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="relative" ref={profileRef}>
-                                <button
-                                    onClick={() => setIsProfileOpen(prev => !prev)} 
-                                    className="flex items-center gap-1.5 pl-0.5 pr-1 py-0.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-                                >
-                                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 p-[1px]">
-                                        <div className="w-full h-full rounded-full bg-white dark:bg-black flex items-center justify-center">
-                                            <span className="font-bold text-[10px] text-emerald-600 uppercase">{currentUser?.username.substring(0,2)}</span>
-                                        </div>
-                                    </div>
-                                    <ChevronDown size={12} className={`text-zinc-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {isProfileOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#151816] border border-amazio-primary/10 dark:border-white/10 rounded-xl shadow-xl py-1 z-50">
-                                        <div className="px-3 py-2 border-b border-amazio-primary/5 dark:border-white/5">
-                                            <p className="text-xs font-bold text-amazio-primary dark:text-white truncate">{currentUser?.username}</p>
-                                            <p className="text-[10px] text-zinc-500 uppercase">{currentUser?.role}</p>
-                                        </div>
-                                        <button 
-                                            onClick={handleLogout}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50"
-                                        >
-                                            <LogOut size={14} /> Sign Out
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </>
+            <div className="flex items-center gap-4 flex-shrink-0">
+                {isSearchablePage && (
+                    <button className="p-2 text-zinc-500 hover:text-white transition-colors"><Search size={18}/></button>
                 )}
+                {showGlobalFilters && <UniversalFilter pageTitle={pageTitle} />}
+                
+                <button className="p-2 text-zinc-500 hover:text-white transition-colors hidden sm:block"><Maximize2 size={18}/></button>
+                
+                <div className="relative" ref={themeRef}>
+                    <button onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                        {theme === 'dark' ? <Moon size={18}/> : <Sun size={18}/>}
+                    </button>
+                    {isThemeMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-32 bg-[#121412] border border-white/10 rounded-xl shadow-2xl py-1.5 z-50">
+                            <button onClick={() => { toggleTheme('light'); setIsThemeMenuOpen(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 flex items-center gap-2"><Sun size={14}/> Light</button>
+                            <button onClick={() => { toggleTheme('dark'); setIsThemeMenuOpen(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 flex items-center gap-2"><Moon size={14}/> Dark</button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="relative" ref={profileRef}>
+                    <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 p-1 pl-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{currentUser?.username.substring(0,2)}</span>
+                        <div className="w-7 h-7 bg-emerald-600 rounded-full flex items-center justify-center text-[10px] font-black text-white">
+                            {currentUser?.username.substring(0,2).toUpperCase()}
+                        </div>
+                    </button>
+                    {isProfileOpen && (
+                        <div className="absolute right-0 mt-2 w-48 bg-[#121412] border border-white/10 rounded-xl shadow-2xl py-2 z-50">
+                            <div className="px-4 py-2 border-b border-white/5 mb-1">
+                                <p className="text-xs font-black text-white uppercase truncate">{currentUser?.username}</p>
+                                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{currentUser?.role}</p>
+                            </div>
+                            <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 flex items-center gap-2"><LogOut size={14}/> Sign Out</button>
+                        </div>
+                    )}
+                </div>
             </div>
         </header>
     );
