@@ -209,21 +209,36 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
         'fonts', 'templates', 'assets'
     ];
 
+    let collectionsDone = 0;
     collectionsToListen.forEach(colName => {
         const colRef = collection(db, 'fests', festId, colName);
         unsubs.push(onSnapshot(colRef, (snap) => {
             const docs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             (assembledState as any)[colName] = docs;
             setState({ ...assembledState });
-            setLoading(false);
+            
+            // Mark loading as finished once we have at least one valid snapshot
+            // and have attempted to load others
+            collectionsDone++;
+            if (collectionsDone === collectionsToListen.length) {
+              setLoading(false);
+            }
         }, (err) => {
             console.warn(`Collection ${colName} Sync Error:`, err);
-            // Don't necessarily stop loading if one subcollection fails, but ensures it can terminate
-            setLoading(false);
+            collectionsDone++;
+            if (collectionsDone === collectionsToListen.length) {
+              setLoading(false);
+            }
         }));
     });
 
-    return () => unsubs.forEach(u => u());
+    // Safety timeout for loading
+    const timer = setTimeout(() => setLoading(false), 5000);
+
+    return () => {
+      unsubs.forEach(u => u());
+      clearTimeout(timer);
+    };
   }, [currentUser?.festId]);
 
   const festDoc = (col: string, id: string) => doc(db, 'fests', currentUser!.festId, col, id);

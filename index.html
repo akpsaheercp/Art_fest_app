@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="preload" style="scroll-behavior: smooth;">
+<html lang="en" style="scroll-behavior: smooth;">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
@@ -89,14 +89,6 @@
       };
     </script>
     <style type="text/css">
-      .preload,
-      .preload * {
-        -webkit-transition: none !important;
-        -moz-transition: none !important;
-        -ms-transition: none !important;
-        -o-transition: none !important;
-        transition: none !important;
-      }
       :root {
         --bg-color: #0F1210;
         --panel-bg: #181C19;
@@ -108,6 +100,7 @@
         --gradient-end: #4D5A2A;
         --shadow-color: rgba(0, 0, 0, 0.3);
       }
+
       body {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -117,10 +110,31 @@
         padding-left: env(safe-area-inset-left);
         padding-right: env(safe-area-inset-right);
       }
+      
       html.dark body { background-color: var(--bg-color); color: #F2F4EE; }
       html:not(.dark) body { background-color: #FAF8F3; color: #1F2B1B; }
-      .ambient-light { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
-      .noise-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: var(--glass-overlay-opacity); pointer-events: none; }
+
+      .ambient-light {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        pointer-events: none;
+      }
+      
+      .noise-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        opacity: var(--glass-overlay-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        pointer-events: none;
+      }
     </style>
     <script type="importmap">
 {
@@ -131,10 +145,10 @@
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.548.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
     "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js",
-    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
-    "firebase/storage": "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js",
+    "firebase/app": "https://esm.sh/firebase@10.12.2/app",
+    "firebase/firestore": "https://esm.sh/firebase@10.12.2/firestore",
+    "firebase/auth": "https://esm.sh/firebase@10.12.2/auth",
+    "firebase/storage": "https://esm.sh/firebase@10.12.2/storage",
     "jszip": "https://aistudiocdn.com/jszip@^3.10.1/dist/jszip.min.js",
     "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1/dist/html2canvas.min.js",
     "firebase/": "https://esm.sh/firebase@^12.7.0/"
