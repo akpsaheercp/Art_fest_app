@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 /* Added RefreshCw to the list of icons imported from lucide-react */
-import { User, Lock, Sun, Moon, Laptop, ArrowRight, LogOut, AlertCircle, Mail, UserPlus, Sparkles, RefreshCw } from 'lucide-react';
+import { User, Lock, Sun, Moon, Laptop, ArrowRight, LogOut, AlertCircle, Mail, UserPlus, Sparkles, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useFirebase } from '../hooks/useFirebase';
 import { Settings } from '../types';
 
@@ -15,6 +15,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ theme, toggleTheme, settings }) =
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const { login, register, setupNewFest, logout, firebaseUser, currentUser } = useFirebase();
@@ -25,7 +26,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ theme, toggleTheme, settings }) =
         setLoading(true);
         try {
             if (isRegister) {
-                if (!username || !email || !password) throw new Error("All fields are required");
+                if (!username || !email || !password || !confirmPassword) throw new Error("All fields are required");
+                if (password !== confirmPassword) throw new Error("Passwords do not match");
                 await register(username, email, password);
             } else {
                 await login(email, password);
@@ -55,6 +57,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ theme, toggleTheme, settings }) =
 
     const handleLogout = async () => {
         await logout();
+        setError('');
+    };
+
+    const toggleMode = () => {
+        setIsRegister(!isRegister);
+        setPassword('');
+        setConfirmPassword('');
         setError('');
     };
 
@@ -134,6 +143,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ theme, toggleTheme, settings }) =
                             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-zinc-800 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none" placeholder="Security Key" />
                         </div>
 
+                        {isRegister && (
+                            <div className="relative group animate-in slide-in-from-top-2 duration-300">
+                                <ShieldCheck className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 transition-colors ${confirmPassword && confirmPassword === password ? 'text-emerald-500' : 'text-zinc-400 group-focus-within:text-indigo-500'}`} />
+                                <input 
+                                    type="password" 
+                                    value={confirmPassword} 
+                                    onChange={e => setConfirmPassword(e.target.value)} 
+                                    required 
+                                    className={`w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 dark:bg-black/20 border transition-all text-sm font-bold outline-none focus:ring-2 ${confirmPassword && confirmPassword === password ? 'border-emerald-500/50 focus:ring-emerald-500/10' : 'border-zinc-200 dark:border-zinc-800 focus:ring-indigo-500/20'}`} 
+                                    placeholder="Confirm Security Key" 
+                                />
+                            </div>
+                        )}
+
                         {error && (
                             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-200 text-center text-xs font-bold text-rose-600">
                                 {error}
@@ -152,7 +175,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ theme, toggleTheme, settings }) =
                         <div className="pt-4 text-center">
                             <button 
                                 type="button"
-                                onClick={() => setIsRegister(!isRegister)}
+                                onClick={toggleMode}
                                 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-600"
                             >
                                 {isRegister ? 'Already have a fest? Sign In' : 'New Festival? Create Account'}

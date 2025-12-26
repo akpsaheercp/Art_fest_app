@@ -83,6 +83,7 @@ interface FirebaseContextType {
   addCodeLetter: (payload: Omit<CodeLetter, 'id'>) => Promise<void>;
   addMultipleCodeLetters: (payloads: CodeLetter[]) => Promise<void>;
   deleteCodeLetter: (id: string) => Promise<void>;
+  deleteMultipleCodeLetters: (ids: string[]) => Promise<void>;
   addScheduleEvent: (payload: ScheduledEvent) => Promise<void>;
   setSchedule: (payload: ScheduledEvent[]) => Promise<void>;
   updateTabulationEntry: (payload: TabulationEntry) => Promise<void>;
@@ -353,6 +354,12 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const deleteCodeLetter = async (id: string) => await deleteDoc(festDoc('codeLetters', id));
 
+  const deleteMultipleCodeLetters = async (ids: string[]) => {
+      const batch = writeBatch(db);
+      ids.forEach(id => batch.delete(festDoc('codeLetters', id)));
+      await batch.commit();
+  };
+
   const addScheduleEvent = async (p: any) => {
       const id = p.id || `sch_${Date.now()}`;
       await setDoc(festDoc('schedule', id), { ...p, id });
@@ -465,10 +472,9 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   const restoreState = async (newState: AppState) => {
       if (!currentUser?.festId) return;
       const festId = currentUser.festId;
-      const batch = writeBatch(db);
-
+      
       // 1. Root Document
-      batch.set(doc(db, 'fests', festId), {
+      await setDoc(doc(db, 'fests', festId), {
           id: festId,
           settings: newState.settings,
           gradePoints: newState.gradePoints,
@@ -477,7 +483,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
           updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 2. Collections
+      // 2. Collections (Batched for efficiency and limit compliance)
       const collectionKeys = [
           'categories', 'teams', 'items', 'participants', 'judges', 
           'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results',
@@ -486,15 +492,20 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       for (const key of collectionKeys) {
           const items = (newState as any)[key] || [];
-          // Note: In a production app, you might want to delete existing first, but for simplicity:
-          items.forEach((item: any) => {
-              if (item.id) {
-                  batch.set(doc(db, 'fests', festId, key, item.id), item);
-              }
-          });
-      }
+          if (items.length === 0) continue;
 
-      await batch.commit();
+          // Chunk into groups of 500 for Firestore limits
+          for (let i = 0; i < items.length; i += 500) {
+              const batch = writeBatch(db);
+              const chunk = items.slice(i, i + 500);
+              chunk.forEach((item: any) => {
+                  if (item.id) {
+                      batch.set(doc(db, 'fests', festId, key, item.id), item);
+                  }
+              });
+              await batch.commit();
+          }
+      }
   };
 
   const resetFestival = async () => {
@@ -502,8 +513,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (!confirm("DANGER: This will delete ALL competitive data (participants, scores, results). Continue?")) return;
       
       const festId = currentUser.festId;
-      const batch = writeBatch(db);
-
       const collectionKeys = [
           'categories', 'teams', 'items', 'participants', 'judges', 
           'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results'
@@ -512,10 +521,14 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       for (const key of collectionKeys) {
           const q = query(collection(db, 'fests', festId, key));
           const snap = await getDocs(q);
-          snap.docs.forEach(d => batch.delete(d.ref));
+          
+          // Batch delete in chunks of 500
+          for (let i = 0; i < snap.docs.length; i += 500) {
+              const batch = writeBatch(db);
+              snap.docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+              await batch.commit();
+          }
       }
-
-      await batch.commit();
   };
 
   return (
@@ -530,7 +543,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       addItem, updateItem, deleteMultipleItems,
       addParticipant, updateParticipant, updateMultipleParticipants, deleteMultipleParticipants,
       addJudge, updateJudge, deleteMultipleJudges,
-      addCodeLetter, addMultipleCodeLetters, deleteCodeLetter,
+      addCodeLetter, addMultipleCodeLetters, deleteCodeLetter, deleteMultipleCodeLetters,
       addScheduleEvent, setSchedule, updateTabulationEntry, updateMultipleTabulationEntries,
       deleteEventTabulation, updateResultStatus, declareResult, updateItemJudges,
       addUser, updateUser, deleteUser, updatePermissions, updateInstruction, hasPermission,
