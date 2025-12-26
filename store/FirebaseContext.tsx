@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { 
     doc, onSnapshot, setDoc, updateDoc, collection, 
-    query, getDocs, where, deleteDoc, writeBatch
+    query, getDocs, where, deleteDoc, writeBatch, deleteField
 } from 'firebase/firestore';
 import { 
     signInWithEmailAndPassword, createUserWithEmailAndPassword, 
@@ -37,6 +37,7 @@ interface FirebaseContextType {
   currentUser: UserProfile | null;
   firebaseUser: FirebaseUser | null; 
   loading: boolean;
+  festError: boolean;
   globalFilters: any;
   setGlobalFilters: React.Dispatch<React.SetStateAction<any>>;
   globalSearchTerm: string;
@@ -58,6 +59,7 @@ interface FirebaseContextType {
   login: (username: string, pass: string) => Promise<void>;
   register: (username: string, email: string, pass: string) => Promise<void>;
   setupNewFest: (username: string) => Promise<void>;
+  repairOrphanedAccount: () => Promise<void>;
   logout: () => Promise<void>;
   uploadFile: (path: string, file: File) => Promise<string>;
 
@@ -97,7 +99,6 @@ interface FirebaseContextType {
   updateInstruction: (payload: { page: string, text: string }) => Promise<void>;
   hasPermission: (tab: string) => boolean;
 
-  // New Modular Asset Methods
   addFont: (font: Omit<FontConfig, 'id'>) => Promise<void>;
   deleteFont: (id: string) => Promise<void>;
   addTemplate: (template: Omit<Template, 'id'>) => Promise<void>;
@@ -113,6 +114,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [festError, setFestError] = useState(false);
   const [globalFilters, setGlobalFilters] = useState({ teamId: [], categoryId: [], performanceType: [], itemId: [], status: [], date: [], stage: [] });
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
@@ -148,10 +150,12 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     if (!currentUser?.festId) {
         if (!loading && !firebaseUser) setLoading(false);
+        setFestError(false);
         return;
     }
 
     setLoading(true);
+    setFestError(false);
     const festId = currentUser.festId;
     const festRef = doc(db, 'fests', festId);
 
@@ -163,12 +167,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
         fonts: [], templates: [], assets: []
     };
 
-    const collectionsToListen = [
-        'categories', 'teams', 'items', 'participants', 'judges', 
-        'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results',
-        'fonts', 'templates', 'assets'
-    ];
-
     const unsubs: (() => void)[] = [];
 
     unsubs.push(onSnapshot(festRef, (snap) => {
@@ -179,8 +177,18 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
             assembledState.permissions = data.permissions || DEFAULT_PAGE_PERMISSIONS;
             assembledState.users = data.users || [];
             setState({ ...assembledState });
+        } else {
+            // Festival document wiped from DB
+            setFestError(true);
+            setLoading(false);
         }
     }));
+
+    const collectionsToListen = [
+        'categories', 'teams', 'items', 'participants', 'judges', 
+        'codeLetters', 'schedule', 'judgeAssignments', 'tabulation', 'results',
+        'fonts', 'templates', 'assets'
+    ];
 
     collectionsToListen.forEach(colName => {
         const colRef = collection(db, 'fests', festId, colName);
@@ -205,6 +213,15 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   const setupNewFest = async (username: string) => {
       if (!firebaseUser) throw new Error("Not authenticated");
       await initFest(firebaseUser.uid, firebaseUser.email || '', username);
+  };
+
+  const repairOrphanedAccount = async () => {
+      if (!firebaseUser) return;
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+          festId: deleteField()
+      });
+      setCurrentUser(prev => prev ? { ...prev, festId: '' } : null);
+      setFestError(false);
   };
 
   const initFest = async (uid: string, email: string, username: string) => {
@@ -425,7 +442,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       return state.permissions[currentUser.role]?.includes(tab) || false;
   }, [currentUser, state]);
 
-  // Asset CRUD
   const addFont = async (f: any) => {
       const id = f.id || `font_${Date.now()}`;
       await setDoc(festDoc('fonts', id), { ...f, id });
@@ -446,11 +462,11 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   return (
     <FirebaseContext.Provider value={{
-      state, currentUser, firebaseUser, loading, globalFilters, setGlobalFilters,
+      state, currentUser, firebaseUser, loading, festError, globalFilters, setGlobalFilters,
       globalSearchTerm, setGlobalSearchTerm, dataEntryView, setDataEntryView,
       itemsSubView, setItemsSubView, gradeSubView, setGradeSubView, scoringSubView, setScoringSubView,
       judgesSubView, setJudgesSubView, settingsSubView, setSettingsSubView,
-      login, register, setupNewFest, logout, uploadFile,
+      login, register, setupNewFest, repairOrphanedAccount, logout, uploadFile,
       updateSettings, addCategory, updateCategory, deleteMultipleCategories,
       addTeam, updateTeam, deleteMultipleTeams,
       addItem, updateItem, deleteMultipleItems,

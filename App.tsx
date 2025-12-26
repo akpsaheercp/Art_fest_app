@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TABS, SIDEBAR_GROUPS } from './constants';
 import { useFirebase } from './hooks/useFirebase';
 import { User, UserRole } from './types';
-// Add missing RefreshCw import
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ShieldAlert, LogOut, ArrowRight } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -32,7 +30,7 @@ type Theme = 'light' | 'dark' | 'system';
 
 const App: React.FC = () => {
   const { 
-    state, currentUser, loading, logout, hasPermission,
+    state, currentUser, loading, festError, logout, hasPermission, repairOrphanedAccount,
     dataEntryView, setDataEntryView,
     itemsSubView, setItemsSubView,
     gradeSubView, setGradeSubView,
@@ -79,10 +77,13 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      document.documentElement.classList.remove('preload');
-    }, 100);
-    return () => clearTimeout(timer);
+    const root = window.document.documentElement;
+    if (!root.classList.contains('preload')) {
+        const timer = setTimeout(() => {
+          document.documentElement.classList.remove('preload');
+        }, 100);
+        return () => clearTimeout(timer);
+    }
   }, []);
 
   useEffect(() => {
@@ -296,7 +297,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 1. Initial global loading (checking Auth)
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-amazio-light-bg dark:bg-amazio-bg transition-colors">
@@ -306,19 +306,50 @@ const App: React.FC = () => {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="mt-6 text-amazio-primary dark:text-amazio-muted font-medium tracking-wide relative z-10">INITIALIZING AMAZIO OS...</p>
+          <p className="mt-6 text-amazio-primary dark:text-amazio-muted font-medium tracking-wide relative z-10 uppercase tracking-[0.2em] text-[10px] font-black">Connecting to OS...</p>
         </div>
       </div>
     );
   }
 
-  // 2. If no user profile exists, show Login/Signup
   if (!currentUser) {
     const dummySettings = { heading: 'Amazio Art Fest' } as any;
     return <LoginPage theme={theme} toggleTheme={(t) => toggleTheme(t)} settings={state?.settings || dummySettings} />;
   }
 
-  // 3. If user exists but state (Festival data) isn't loaded yet
+  // Handle case where user profile exists but fest data document is missing (deleted from DB)
+  if (festError || (currentUser?.festId && !state)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-amazio-light-bg dark:bg-amazio-bg transition-colors p-4">
+        <div className="w-full max-w-md p-8 sm:p-10 rounded-[2.5rem] bg-white/80 dark:bg-[#121412]/90 backdrop-blur-2xl border border-zinc-200 dark:border-white/10 shadow-2xl text-center animate-in fade-in zoom-in-95 duration-500">
+           <div className="inline-flex p-4 rounded-3xl bg-rose-500/10 text-rose-500 mb-6 border border-rose-500/20">
+              <ShieldAlert size={48} />
+           </div>
+           <h3 className="text-2xl font-black font-serif text-amazio-primary dark:text-white uppercase tracking-tighter leading-tight mb-2">Festival Registry Missing</h3>
+           <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium mb-8 leading-relaxed">
+             Your account is active, but the associated festival metadata has been wiped or is unreachable. You may start a fresh festival under this account.
+           </p>
+           
+           <div className="space-y-3">
+               <button 
+                onClick={repairOrphanedAccount}
+                className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+               >
+                Setup Fresh Festival <ArrowRight size={16} />
+               </button>
+               
+               <button 
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-2xl text-xs font-black uppercase tracking-widest border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 transition-all"
+               >
+                <LogOut size={16} /> Exit Session
+               </button>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!state) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-amazio-light-bg dark:bg-amazio-bg transition-colors">
