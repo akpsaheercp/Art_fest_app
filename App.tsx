@@ -39,7 +39,6 @@ const App: React.FC = () => {
     setGlobalFilters, setGlobalSearchTerm
   } = useFirebase();
 
-  // Fix: Create a User compatible object from UserProfile to resolve type mismatches
   const user: User | null = useMemo(() => currentUser ? {
     id: currentUser.uid,
     username: currentUser.username,
@@ -54,7 +53,6 @@ const App: React.FC = () => {
   });
 
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
   const mainContentRef = useRef<HTMLElement>(null);
 
   const isProjectorMode = activeTab === TABS.PROJECTOR;
@@ -84,16 +82,6 @@ const App: React.FC = () => {
     }
     return 'dark';
   });
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (!root.classList.contains('preload')) {
-        const timer = setTimeout(() => {
-          document.documentElement.classList.remove('preload');
-        }, 100);
-        return () => clearTimeout(timer);
-    }
-  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -258,23 +246,24 @@ const App: React.FC = () => {
   const handleBackdropClick = () => setIsSidebarExpanded(false);
 
   const handleMainScroll = (e: React.UIEvent<HTMLElement>) => {
-    if (!isMobile) return;
-    const currentScrollY = e.currentTarget.scrollTop;
-    const deltaY = currentScrollY - lastScrollY.current;
-    if (currentScrollY > 60) {
-        if (Math.abs(deltaY) > 5) if (isHeaderVisible) setIsHeaderVisible(false);
-    } else {
-        if (!isHeaderVisible) setIsHeaderVisible(true);
+    // Keep header visible on mobile scroll down
+    if (isMobile) {
+      setIsHeaderVisible(true);
+      return;
     }
-    lastScrollY.current = currentScrollY;
+    
+    const currentScrollY = e.currentTarget.scrollTop;
+    if (currentScrollY > 100) {
+      // Basic desktop logic if needed, but the requirement is mobile-focused.
+      setIsHeaderVisible(true);
+    } else {
+      setIsHeaderVisible(true);
+    }
   };
 
   const handleContentClick = (e: React.MouseEvent) => {
     if (!isMobile) return;
-    const target = e.target as HTMLElement;
-    const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-    if (interactive) return;
-    setIsHeaderVisible(prev => !prev);
+    setIsHeaderVisible(true);
   };
 
   const renderContent = () => {
@@ -293,7 +282,6 @@ const App: React.FC = () => {
       case TABS.ITEMS: return <ItemsManagement />;
       case TABS.GRADE_POINTS: return <GradePoints />;
       case TABS.JUDGES_MANAGEMENT: return <JudgesManagement />;
-      // Fix: Passing compatible user object to DataEntryPage
       case TABS.DATA_ENTRY: return <DataEntryPage currentUser={user} />;
       case TABS.SCHEDULE: return <SchedulePage />;
       case TABS.SCORING_RESULTS: return <JudgementPage isMobile={isMobile} />;
@@ -323,11 +311,10 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    const dummySettings = { heading: 'Amazio Art Fest' } as any;
+    const dummySettings = { heading: 'Artfestmanager' } as any;
     return <LoginPage theme={theme} toggleTheme={(t) => toggleTheme(t)} settings={state?.settings || dummySettings} />;
   }
 
-  // Handle case where user profile exists but fest data document is missing (deleted from DB)
   if (festError || (currentUser?.festId && !state)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-amazio-light-bg dark:bg-amazio-bg transition-colors p-4">
@@ -396,7 +383,6 @@ const App: React.FC = () => {
           aria-hidden="true"
         />
       )}
-      {/* Fix: Passing compatible user object to Sidebar and Header */}
       <Sidebar 
         activeTab={activeTab} setActiveTab={handleSetActiveTab} isExpanded={isSidebarExpanded} isOpen={isSidebarOpen}
         toggleSidebar={toggleSidebarExpansion} isMobile={isMobile} handleLogout={logout} currentUser={user!} hasPermission={hasPermission}

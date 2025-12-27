@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Menu, LogOut, ChevronDown, Sun, Moon, Laptop, Search, X, Command, ArrowLeft, SlidersHorizontal, Filter, LayoutList, Users, Layers, Milestone, Gavel, Settings as SettingsIcon, Hash, Medal, Info, Palette, BookText, Database, ShieldCheck, LayoutGrid, User as UserIcon, ClipboardList, Wifi, Maximize2 } from 'lucide-react';
-import { User, UserRole } from '../types';
+import { Menu, LogOut, Sun, Moon, Search, Maximize2, ChevronDown, ClipboardList, Users, LayoutList, Hash, Medal, ShieldCheck, User as UserIcon, Info, Palette, BookText, Database, Calendar, Timer, Edit3, BarChart2, FileText, LayoutDashboard, Settings, Layers, ListTodo, Trophy, FileBadge } from 'lucide-react';
+import { User } from '../types';
 import { useFirebase } from '../hooks/useFirebase';
-import { PAGES_WITH_GLOBAL_FILTERS, TABS, TAB_DISPLAY_NAMES } from '../constants';
+import { PAGES_WITH_GLOBAL_FILTERS, TABS } from '../constants';
 import UniversalFilter from './UniversalFilter';
 
 interface HeaderProps {
@@ -18,18 +18,18 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, currentUser, theme, toggleTheme, isVisible = true }) => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     
     const profileRef = useRef<HTMLDivElement>(null);
     const themeRef = useRef<HTMLDivElement>(null);
     
     const { 
-        state, setGlobalFilters, globalSearchTerm, setGlobalSearchTerm, 
         dataEntryView, setDataEntryView,
         itemsSubView, setItemsSubView,
         gradeSubView, setGradeSubView,
         judgesSubView, setJudgesSubView,
+        scheduleSubView, setScheduleSubView,
+        pointsSubView, setPointsSubView,
+        reportsSubView, setReportsSubView,
         settingsSubView, setSettingsSubView
     } = useFirebase();
     
@@ -63,8 +63,8 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, c
                 ];
             case TABS.ITEMS:
                 return [
-                    { id: 'ITEMS', label: 'ITEM REGISTRY', icon: LayoutList, active: itemsSubView === 'ITEMS', onClick: () => setItemsSubView('ITEMS'), color: 'teal' },
-                    { id: 'PARTICIPANTS', label: 'PARTICIPANTS REGISTRY', icon: Users, active: itemsSubView === 'PARTICIPANTS', onClick: () => setItemsSubView('PARTICIPANTS'), color: 'teal' }
+                    { id: 'ITEMS', label: 'ITEMS REGISTRY', icon: LayoutList, active: itemsSubView === 'ITEMS', onClick: () => setItemsSubView('ITEMS'), color: 'teal' },
+                    { id: 'PARTICIPANTS', label: 'DELEGATE REGISTRY', icon: Users, active: itemsSubView === 'PARTICIPANTS', onClick: () => setItemsSubView('PARTICIPANTS'), color: 'teal' }
                 ];
             case TABS.GRADE_POINTS:
                 return [
@@ -74,65 +74,83 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, c
             case TABS.JUDGES_MANAGEMENT:
                 return [
                     { id: 'ASSIGNMENTS', label: 'ASSIGNMENTS', icon: ShieldCheck, active: judgesSubView === 'ASSIGNMENTS', onClick: () => setJudgesSubView('ASSIGNMENTS'), color: 'indigo' },
-                    { id: 'REGISTRY', label: 'JUDGE REGISTRY', icon: UserIcon, active: judgesSubView === 'REGISTRY', onClick: () => setJudgesSubView('REGISTRY'), color: 'indigo' }
+                    { id: 'REGISTRY', label: 'OFFICIAL REGISTRY', icon: UserIcon, active: judgesSubView === 'REGISTRY', onClick: () => setJudgesSubView('REGISTRY'), color: 'indigo' }
+                ];
+            case TABS.SCHEDULE:
+                return [
+                    { id: 'MANAGE', label: 'MANAGE TIMELINE', icon: Calendar, active: scheduleSubView === 'MANAGE', onClick: () => setScheduleSubView('MANAGE'), color: 'purple' },
+                    { id: 'CONFIG', label: 'VENUE CONFIG', icon: Settings, active: scheduleSubView === 'CONFIG', onClick: () => setScheduleSubView('CONFIG'), color: 'purple' }
+                ];
+            case TABS.SCORING_RESULTS:
+                return [
+                    { id: 'QUEUE', label: 'ADJUDICATION', icon: Edit3, active: true, onClick: () => {}, color: 'rose' },
+                ];
+            case TABS.POINTS:
+                return [
+                    { id: 'LEADERBOARD', label: 'LEADERBOARD', icon: Trophy, active: pointsSubView === 'LEADERBOARD', onClick: () => setPointsSubView('LEADERBOARD'), color: 'yellow' },
+                    { id: 'INSIGHTS', label: 'POINT AUDIT', icon: Info, active: pointsSubView === 'INSIGHTS', onClick: () => setPointsSubView('INSIGHTS'), color: 'yellow' }
+                ];
+            case TABS.REPORTS:
+                return [
+                    { id: 'TEMPLATES', label: 'OFFICIAL FORMS', icon: FileText, active: reportsSubView === 'TEMPLATES', onClick: () => setReportsSubView('TEMPLATES'), color: 'cyan' },
+                    { id: 'LOGISTICS', label: 'LOGISTICS DATA', icon: FileBadge, active: reportsSubView === 'LOGISTICS', onClick: () => setReportsSubView('LOGISTICS'), color: 'cyan' }
                 ];
             case TABS.GENERAL_SETTINGS:
                 return [
                     { id: 'details', label: 'EVENT DETAILS', icon: Info, active: settingsSubView === 'details', onClick: () => setSettingsSubView('details'), color: 'zinc' },
-                    { id: 'display', label: 'DISPLAY & LAYOUT', icon: Palette, active: settingsSubView === 'display', onClick: () => setSettingsSubView('display'), color: 'zinc' },
-                    { id: 'users', label: 'USERS & ACCESS', icon: Users, active: settingsSubView === 'users', onClick: () => setSettingsSubView('users'), color: 'indigo' },
-                    { id: 'instructions', label: 'INSTRUCTIONS', icon: BookText, active: settingsSubView === 'instructions', onClick: () => setSettingsSubView('instructions'), color: 'zinc' },
-                    { id: 'data', label: 'CONTINUITY', icon: Database, active: settingsSubView === 'data', onClick: () => setSettingsSubView('data'), color: 'zinc' }
+                    { id: 'display', label: 'DESIGN & LAYOUT', icon: Palette, active: settingsSubView === 'display', onClick: () => setSettingsSubView('display'), color: 'zinc' },
+                    { id: 'users', label: 'USERS & ACCESS', icon: Users, active: settingsSubView === 'users', onClick: () => setSettingsSubView('users'), color: 'zinc' },
+                    { id: 'data', label: 'SYSTEM CONTINUITY', icon: Database, active: settingsSubView === 'data', onClick: () => setSettingsSubView('data'), color: 'zinc' }
                 ];
             default: return [];
         }
-    }, [pageTitle, dataEntryView, itemsSubView, gradeSubView, judgesSubView, settingsSubView, setDataEntryView, setItemsSubView, setGradeSubView, setJudgesSubView, setSettingsSubView]);
+    }, [pageTitle, dataEntryView, itemsSubView, gradeSubView, judgesSubView, scheduleSubView, pointsSubView, reportsSubView, settingsSubView, setDataEntryView, setItemsSubView, setGradeSubView, setJudgesSubView, setScheduleSubView, setPointsSubView, setReportsSubView, setSettingsSubView]);
 
     return (
-        <header className={`fixed md:relative top-0 left-0 right-0 z-40 w-full transition-all duration-300 ease-in-out bg-amazio-bg border-b border-white/5 ${isVisible ? 'translate-y-0' : '-translate-y-full md:translate-y-0'} h-14 md:h-16 flex items-center px-6`}>
+        <header className={`fixed md:relative top-0 left-0 right-0 z-40 w-full transition-all duration-300 ease-in-out bg-amazio-bg border-b border-white/5 ${isVisible ? 'translate-y-0' : '-translate-y-full md:translate-y-0'} h-14 md:h-16 flex items-center px-4 md:px-6`}>
             
-            <div className="flex items-center gap-6 flex-shrink-0">
-                <button onClick={onMenuClick} className="lg:hidden p-1 rounded-lg text-zinc-400"><Menu size={20} /></button>
-                <div className="flex items-center gap-2.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full">
-                    <Wifi size={10} className="text-emerald-500 animate-pulse" />
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/80">Synced</span>
-                </div>
+            <div className="flex items-center gap-4 flex-shrink-0">
+                <button onClick={onMenuClick} className="lg:hidden p-2 rounded-xl text-zinc-400 hover:bg-white/5 transition-colors"><Menu size={20} /></button>
             </div>
 
-            {/* Main Horizontal Sub-Navigation */}
-            <div className="flex-grow flex justify-center overflow-x-auto no-scrollbar px-4">
-                <div className="flex items-center gap-1">
+            <div className="flex-grow flex justify-center overflow-x-auto no-scrollbar px-2 md:px-4">
+                <div className="flex items-center gap-1.5 p-1 bg-white/[0.02] border border-white/5 rounded-full backdrop-blur-md">
                     {subNavOptions.map(opt => {
                         const Icon = opt.icon;
                         const activeColors: Record<string, string> = {
-                            emerald: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-                            teal: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
-                            amber: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-                            indigo: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
-                            zinc: 'bg-white/5 text-white border-white/10'
+                            emerald: 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/20',
+                            teal: 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-500/20',
+                            amber: 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/20',
+                            indigo: 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20',
+                            rose: 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20',
+                            purple: 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/20',
+                            yellow: 'bg-yellow-600 text-white border-yellow-500 shadow-lg shadow-yellow-500/20',
+                            cyan: 'bg-cyan-600 text-white border-cyan-500 shadow-lg shadow-cyan-500/20',
+                            zinc: 'bg-zinc-700 text-white border-zinc-600 shadow-lg shadow-zinc-500/20'
                         };
                         return (
                             <button
                                 key={opt.id}
                                 onClick={opt.onClick}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${opt.active ? activeColors[opt.color] || 'bg-white/10 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                                className={`flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-full border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${opt.active ? activeColors[opt.color] || 'bg-white/10 text-white' : 'bg-transparent border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}
                             >
                                 <Icon size={14} strokeWidth={2.5} />
                                 <span className="hidden sm:inline">{opt.label}</span>
-                                {opt.active && <div className={`w-1 h-1 rounded-full ${opt.color === 'zinc' ? 'bg-white' : `bg-${opt.color}-500`}`}></div>}
+                                {opt.active && <div className="w-1 h-1 rounded-full bg-white animate-pulse"></div>}
                             </button>
                         );
                     })}
+                    {subNavOptions.length === 0 && (
+                         <div className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-600 opacity-40">Section Control Active</div>
+                    )}
                 </div>
             </div>
 
-            <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
                 {isSearchablePage && (
-                    <button className="p-2 text-zinc-500 hover:text-white transition-colors"><Search size={18}/></button>
+                    <button className="p-2 text-zinc-500 hover:text-white transition-colors hidden sm:block"><Search size={18}/></button>
                 )}
                 {showGlobalFilters && <UniversalFilter pageTitle={pageTitle} />}
-                
-                <button className="p-2 text-zinc-500 hover:text-white transition-colors hidden sm:block"><Maximize2 size={18}/></button>
                 
                 <div className="relative" ref={themeRef}>
                     <button onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)} className="p-2 text-zinc-500 hover:text-white transition-colors">
@@ -148,18 +166,20 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, onMenuClick, handleLogout, c
 
                 <div className="relative" ref={profileRef}>
                     <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 p-1 pl-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{currentUser?.username.substring(0,2)}</span>
-                        <div className="w-7 h-7 bg-emerald-600 rounded-full flex items-center justify-center text-[10px] font-black text-white">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hidden xs:inline">{currentUser?.username.substring(0,2)}</span>
+                        <div className="w-7 h-7 bg-emerald-600 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-lg">
                             {currentUser?.username.substring(0,2).toUpperCase()}
                         </div>
                     </button>
                     {isProfileOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-[#121412] border border-white/10 rounded-xl shadow-2xl py-2 z-50">
-                            <div className="px-4 py-2 border-b border-white/5 mb-1">
+                        <div className="absolute right-0 mt-2 w-48 bg-[#121412] border border-white/10 rounded-xl shadow-2xl py-2 z-50 overflow-hidden">
+                            <div className="px-4 py-3 border-b border-white/5 bg-white/[0.02]">
                                 <p className="text-xs font-black text-white uppercase truncate">{currentUser?.username}</p>
-                                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{currentUser?.role}</p>
+                                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">{currentUser?.role}</p>
                             </div>
-                            <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 flex items-center gap-2"><LogOut size={14}/> Sign Out</button>
+                            <div className="p-1">
+                                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-500/10 rounded-lg flex items-center gap-2 transition-colors"><LogOut size={14}/> Sign Out</button>
+                            </div>
                         </div>
                     )}
                 </div>

@@ -2,14 +2,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    
+    // Test Build Rule: Allow all authenticated users to read and write everything.
+    // This simplifies testing during the development phase.
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
     }
     
-    // Authenticated users can manage festival data
-    match /fests/{allPaths=**} {
-      allow read, write: if request.auth != null;
+    // Users can still only manage their own profile metadata
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }

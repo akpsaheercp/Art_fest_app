@@ -1,5 +1,8 @@
 {
-  "name": "Art Fest Manager",
-  "description": "A comprehensive web application to manage all aspects of an Art Fest, from initialization and participant entry to scheduling, tabulation, results, and reporting.",
-  "requestFramePermissions": []
+  "name": "Art Fest Manager Pro",
+  "description": "A world-class web application to manage all aspects of an Art Fest with real-time analytics and cinematic display modes.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }

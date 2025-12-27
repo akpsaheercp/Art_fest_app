@@ -75,7 +75,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selectedIds, 
 
             {isOpen && (
                 <div className="absolute top-full left-0 z-[100] mt-2 w-64 bg-white dark:bg-[#151816] border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top">
-                    <div className="p-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between">
+                    <div className="p-2 border-b border-zinc-100 dark:border-border-800 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between">
                          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-2">Filter {label}</span>
                          <button onClick={handleSelectAll} className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
                             {selectedIds.length === options.length ? 'Clear All' : 'Select All'}
@@ -263,10 +263,10 @@ const UniversalFilter: React.FC<UniversalFilterProps> = ({ pageTitle }) => {
             <div className="lg:hidden">
                 <button
                     onClick={() => setIsMobileOpen(true)}
-                    className={`relative p-2.5 rounded-xl flex items-center gap-2 transition-all border ${
+                    className={`relative p-2.5 rounded-xl flex items-center gap-2 transition-all border-none shadow-none focus:outline-none ${
                         activeCount > 0 
-                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg shadow-indigo-500/20' 
-                        : 'bg-white/40 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border-amazio-primary/10 dark:border-white/10'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                        : 'bg-transparent text-zinc-500 dark:text-zinc-400'
                     }`}
                 >
                     <Filter size={18} />
@@ -350,7 +350,7 @@ const UniversalFilter: React.FC<UniversalFilterProps> = ({ pageTitle }) => {
                                 </>
                             )}
 
-                            {!isScoringPage && !isSchedulePage && (
+                            {!isScoringPage && !isTeamLeader && !isSchedulePage && (
                                 <div className="space-y-3">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Team Scopes</label>
                                     <div className="grid grid-cols-2 gap-2">

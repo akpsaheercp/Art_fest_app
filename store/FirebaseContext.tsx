@@ -54,6 +54,12 @@ interface FirebaseContextType {
   setScoringSubView: (v: any) => void;
   judgesSubView: 'ASSIGNMENTS' | 'REGISTRY' | 'OVERVIEW';
   setJudgesSubView: (v: any) => void;
+  scheduleSubView: 'MANAGE' | 'CONFIG';
+  setScheduleSubView: (v: any) => void;
+  pointsSubView: 'LEADERBOARD' | 'INSIGHTS';
+  setPointsSubView: (v: any) => void;
+  reportsSubView: 'TEMPLATES' | 'LOGISTICS';
+  setReportsSubView: (v: any) => void;
   settingsSubView: string;
   setSettingsSubView: (v: string) => void;
 
@@ -134,6 +140,9 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [gradeSubView, setGradeSubView] = useState<'CODES' | 'GRADES'>('CODES');
   const [scoringSubView, setScoringSubView] = useState<'QUEUE' | 'LEDGER'>('QUEUE');
   const [judgesSubView, setJudgesSubView] = useState<'ASSIGNMENTS' | 'REGISTRY' | 'OVERVIEW'>('ASSIGNMENTS');
+  const [scheduleSubView, setScheduleSubView] = useState<'MANAGE' | 'CONFIG'>('MANAGE');
+  const [pointsSubView, setPointsSubView] = useState<'LEADERBOARD' | 'INSIGHTS'>('LEADERBOARD');
+  const [reportsSubView, setReportsSubView] = useState<'TEMPLATES' | 'LOGISTICS'>('TEMPLATES');
   const [settingsSubView, setSettingsSubView] = useState('details');
 
   useEffect(() => {
@@ -209,36 +218,20 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
         'fonts', 'templates', 'assets'
     ];
 
-    let collectionsDone = 0;
     collectionsToListen.forEach(colName => {
         const colRef = collection(db, 'fests', festId, colName);
         unsubs.push(onSnapshot(colRef, (snap) => {
             const docs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             (assembledState as any)[colName] = docs;
             setState({ ...assembledState });
-            
-            // Mark loading as finished once we have at least one valid snapshot
-            // and have attempted to load others
-            collectionsDone++;
-            if (collectionsDone === collectionsToListen.length) {
-              setLoading(false);
-            }
+            setLoading(false);
         }, (err) => {
             console.warn(`Collection ${colName} Sync Error:`, err);
-            collectionsDone++;
-            if (collectionsDone === collectionsToListen.length) {
-              setLoading(false);
-            }
+            setLoading(false);
         }));
     });
 
-    // Safety timeout for loading
-    const timer = setTimeout(() => setLoading(false), 5000);
-
-    return () => {
-      unsubs.forEach(u => u());
-      clearTimeout(timer);
-    };
+    return () => unsubs.forEach(u => u());
   }, [currentUser?.festId]);
 
   const festDoc = (col: string, id: string) => doc(db, 'fests', currentUser!.festId, col, id);
@@ -606,7 +599,11 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({ children }
       state, currentUser, firebaseUser, loading, festError, globalFilters, setGlobalFilters,
       globalSearchTerm, setGlobalSearchTerm, dataEntryView, setDataEntryView,
       itemsSubView, setItemsSubView, gradeSubView, setGradeSubView, scoringSubView, setScoringSubView,
-      judgesSubView, setJudgesSubView, settingsSubView, setSettingsSubView,
+      judgesSubView, setJudgesSubView, 
+      scheduleSubView, setScheduleSubView,
+      pointsSubView, setPointsSubView,
+      reportsSubView, setReportsSubView,
+      settingsSubView, setSettingsSubView,
       login, register, setupNewFest, repairOrphanedAccount, logout, uploadFile,
       updateSettings, addCategory, updateCategory, deleteMultipleCategories,
       addTeam, updateTeam, addMultipleTeams, deleteMultipleTeams,
